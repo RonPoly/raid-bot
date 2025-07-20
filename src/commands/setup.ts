@@ -51,7 +51,13 @@ async function ask(
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Run initial setup wizard')
+    .setDescription('Server configuration')
+    .addSubcommand((sub) =>
+      sub.setName('run').setDescription('Run initial setup wizard')
+    )
+    .addSubcommand((sub) =>
+      sub.setName('status').setDescription('Show current configuration')
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
     if (!interaction.guild) {
@@ -59,6 +65,39 @@ const command: Command = {
       return;
     }
 
+    const sub = interaction.options.getSubcommand();
+
+    if (sub === 'status') {
+      const guildId = interaction.guild.id;
+      const { data: config } = await supabase
+        .from('guild_configs')
+        .select('*')
+        .eq('discord_guild_id', guildId)
+        .maybeSingle();
+
+      if (!config || !config.setup_complete) {
+        await interaction.reply({
+          content: 'Not configured. Run /setup to configure.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('Guild Configuration')
+        .addFields(
+          { name: 'Guild', value: config.warmane_guild_name, inline: true },
+          { name: 'Realm', value: config.warmane_realm, inline: true },
+          { name: 'Member Role ID', value: config.member_role_id ?? 'None', inline: true },
+          { name: 'Officer Role ID', value: config.officer_role_id ?? 'None', inline: true },
+          { name: 'Raid Channel ID', value: config.raid_channel_id ?? 'None', inline: true }
+        );
+
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      return;
+    }
+
+    // run subcommand
     const guildId = interaction.guild.id;
     const { data: existing } = await supabase
       .from('guild_configs')
