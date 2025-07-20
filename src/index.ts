@@ -1,76 +1,103 @@
-import { Client, GatewayIntentBits } from 'discord.js';
-import { createClient } from '@supabase/supabase-js';
+import { Client, GatewayIntentBits, Collection, Events, ActivityType } from 'discord.js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import fs from 'node:fs';
+
+// This bot manages Warmane raids, tracks characters and GearScore, and syncs Discord roles with the guild roster.
 
 // Load environment variables from .env file
 dotenv.config();
 
-// Validate required environment variables
-const { DISCORD_TOKEN, SUPABASE_URL, SUPABASE_KEY } = process.env;
-if (!DISCORD_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing required environment variables. Please check your .env file.');
+const {
+  DISCORD_TOKEN,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  GUILD_ID,
+} = process.env;
+
+// Verify required environment variables are present
+if (!DISCORD_TOKEN || !SUPABASE_URL || !SUPABASE_ANON_KEY || !GUILD_ID) {
+  console.error('Missing required environment variables.');
   process.exit(1);
 }
 
-// Initialize Supabase client with URL and key from environment variables
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Initialize Supabase client for storing player data and raid signups
+const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Initialize Discord client with required intents
+// Initialize Discord client with intents for guilds, members, and messages
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds, // Allows bot to receive guild (server) related events
-    GatewayIntentBits.GuildMessages, // Allows bot to receive message events in guilds
-    GatewayIntentBits.MessageContent, // Allows bot to read message content
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
   ],
 });
 
-// Event: When the bot is ready and connected to Discord
-client.once('ready', () => {
-  console.log('Bot is online');
-  if (client.user) {
-    console.log(`Logged in as ${client.user.tag}`);
+// Collection to hold loaded slash commands
+const commands = new Collection<string, any>();
+
+// Dynamically load all slash command modules from src/commands
+const commandsPath = path.join(__dirname, 'commands');
+if (fs.existsSync(commandsPath)) {
+  const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.ts') || file.endsWith('.js'));
+  for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath).default;
+    if (command && command.data && command.execute) {
+      commands.set(command.data.name, command);
+    }
+  }
+}
+
+// Ready event: log online message and set bot presence
+client.once(Events.ClientReady, async () => {
+  console.log('Warmane Raid Bot is online!');
+
+  try {
+    const guild = await client.guilds.fetch(GUILD_ID);
+    client.user?.setPresence({
+      activities: [{ name: `Managing ${guild.name} raids`, type: ActivityType.Playing }],
+      status: 'online',
+    });
+  } catch (err) {
+    console.error('Failed to set bot status:', err);
   }
 });
 
-// Event: Handle errors to prevent bot crashing
-client.on('error', (error) => {
-  console.error('Discord client encountered an error:', error);
+// Generic error handling for Discord client
+client.on(Events.Error, (error) => {
+  console.error('Discord client error:', error);
 });
 
-// Event: Handle warnings for debugging
-client.on('warn', (warning) => {
-  console.warn('Discord client warning:', warning);
+client.on(Events.Warn, (info) => {
+  console.warn('Discord client warning:', info);
 });
 
-// Example: Basic command handler (modern pattern using message content)
-client.on('messageCreate', async (message) => {
-  // Ignore messages from bots
-  if (message.author.bot) return;
+// Handle interactions for slash commands
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
 
-  // Example command: !ping
-  if (message.content.startsWith('!ping')) {
-    try {
-      // Example: Store a ping in Supabase
-      const { error } = await supabase
-        .from('pings')
-        .insert([{ user_id: message.author.id, timestamp: new Date().toISOString() }]);
+  const command = commands.get(interaction.commandName);
+  if (!command) return;
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        await message.reply('Error saving ping to database.');
-        return;
-      }
-
-      await message.reply('Pong!');
-    } catch (err) {
-      console.error('Error handling ping command:', err);
-      await message.reply('An error occurred while processing your command.');
+  try {
+    await command.execute(interaction, supabase);
+  } catch (error) {
+    console.error('Error executing command:', error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: 'There was an error executing this command.', ephemeral: true });
+    } else {
+      await interaction.reply({ content: 'There was an error executing this command.', ephemeral: true });
     }
   }
 });
 
-// Login to Discord with the bot token
+// Global handler for unhandled rejections (Supabase or other promises)
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
+// Start the bot
 client.login(DISCORD_TOKEN).catch((error) => {
-  console.error('Failed to login to Discord:', error);
-  process.exit(1);
+  console.error('Failed to login:', error);
 });
