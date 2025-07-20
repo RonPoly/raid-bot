@@ -5,6 +5,9 @@ import {
   EmbedBuilder,
   ChannelType,
   DMChannel,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+  ComponentType,
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
@@ -116,7 +119,7 @@ const command: Command = {
       let guildName = '';
       let realm = '';
       while (true) {
-        guildName = await ask(dm, interaction.user.id, 'What is your Warmane guild name? (Example: The Sanctuary)');
+        guildName = await ask(dm, interaction.user.id, 'What is your Warmane guild name? (Must be spelled exactly as in-game)');
         realm = await ask(dm, interaction.user.id, 'What realm is your guild on? (Options: Lordaeron, Icecrown, Frostmourne, Onyxia)', (input) => {
           const match = REALMS.find(r => r.toLowerCase() === input.toLowerCase());
           return match ? null : 'Invalid realm. Please choose from the listed options.';
@@ -132,17 +135,39 @@ const command: Command = {
         }
       }
 
-      const memberRoleId = await ask(dm, interaction.user.id, 'Please @ mention the role for guild members', (input) => {
-        const match = input.match(/<@&(\d+)>/);
-        if (!match) return 'Please mention a role.';
-        return interaction.guild!.roles.cache.has(match[1]) ? null : 'Role not found in this server.';
-      }).then(res => res.match(/<@&(\d+)>/)![1]);
+      const allRoles = await interaction.guild!.roles.fetch();
+      const selectableRoles = allRoles
+        .filter((r) => !r.managed && r.id !== interaction.guild!.id)
+        .map((r) => ({ label: r.name, value: r.id }))
+        .slice(0, 25);
 
-      const officerRoleId = await ask(dm, interaction.user.id, 'Please @ mention the role for officers', (input) => {
-        const match = input.match(/<@&(\d+)>/);
-        if (!match) return 'Please mention a role.';
-        return interaction.guild!.roles.cache.has(match[1]) ? null : 'Role not found in this server.';
-      }).then(res => res.match(/<@&(\d+)>/)![1]);
+      const memberMenu = new StringSelectMenuBuilder()
+        .setCustomId('setup-member-role')
+        .setPlaceholder('Select a role')
+        .addOptions(selectableRoles);
+      const memberRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(memberMenu);
+      await dm.send({ content: 'Please select the role for guild members.', components: [memberRow] });
+      const memberSelect = await dm.awaitMessageComponent({
+        componentType: ComponentType.StringSelect,
+        filter: (i) => i.customId === 'setup-member-role' && i.user.id === interaction.user.id,
+        time: 60_000,
+      });
+      const memberRoleId = memberSelect.values[0];
+      await memberSelect.update({ content: `Selected <@&${memberRoleId}>`, components: [] });
+
+      const officerMenu = new StringSelectMenuBuilder()
+        .setCustomId('setup-officer-role')
+        .setPlaceholder('Select a role')
+        .addOptions(selectableRoles);
+      const officerRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(officerMenu);
+      await dm.send({ content: 'Please select the role for officers.', components: [officerRow] });
+      const officerSelect = await dm.awaitMessageComponent({
+        componentType: ComponentType.StringSelect,
+        filter: (i) => i.customId === 'setup-officer-role' && i.user.id === interaction.user.id,
+        time: 60_000,
+      });
+      const officerRoleId = officerSelect.values[0];
+      await officerSelect.update({ content: `Selected <@&${officerRoleId}>`, components: [] });
 
       const raidChannelId = await ask(dm, interaction.user.id, 'Please # mention the channel for raid signups', (input) => {
         const match = input.match(/<#(\d+)>/);
