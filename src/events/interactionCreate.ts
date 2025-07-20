@@ -6,6 +6,7 @@ import {
   handleRaidSignupButton,
   handleRaidLeaveButton,
   handleRaidRoleSelect,
+  handleRaidCharacterSelect,
 } from '../utils/button-handlers';
 import { handleGsSetSelectMenu } from '../commands/gs';
 
@@ -35,6 +36,8 @@ export default function registerInteractionCreate(client: Client, commands: Map<
     } else if (interaction.isStringSelectMenu()) {
       if (interaction.customId.startsWith('raid-role-select:')) {
         await handleRaidRoleSelect(interaction, supabase);
+      } else if (interaction.customId.startsWith('raid-char-select:')) {
+        await handleRaidCharacterSelect(interaction, supabase);
       } else if (interaction.customId.startsWith('gs-set-select:')) {
         await handleGsSetSelectMenu(interaction, supabase);
       }
