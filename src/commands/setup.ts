@@ -169,12 +169,27 @@ const command: Command = {
       const officerRoleId = officerSelect.values[0];
       await officerSelect.update({ content: `Selected <@&${officerRoleId}>`, components: [] });
 
-      const raidChannelId = await ask(dm, interaction.user.id, 'Please # mention the channel for raid signups', (input) => {
-        const match = input.match(/<#(\d+)>/);
-        if (!match) return 'Please mention a channel.';
-        const chan = interaction.guild!.channels.cache.get(match[1]);
-        return chan && chan.type === ChannelType.GuildText ? null : 'Channel not found or not text channel.';
-      }).then(res => res.match(/<#(\d+)>/)![1]);
+      const raidChannels = interaction.guild!.channels.cache
+        .filter(
+          (c) =>
+            c?.type === ChannelType.GuildText || c?.type === ChannelType.GuildForum
+        )
+        .map((c) => ({ label: c.name!, value: c.id }))
+        .slice(0, 25);
+
+      const raidMenu = new StringSelectMenuBuilder()
+        .setCustomId('setup-raid-channel')
+        .setPlaceholder('Select a channel')
+        .addOptions(raidChannels);
+      const raidRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(raidMenu);
+      await dm.send({ content: 'Please select the channel for raid signups.', components: [raidRow] });
+      const raidSelect = await dm.awaitMessageComponent({
+        componentType: ComponentType.StringSelect,
+        filter: (i) => i.customId === 'setup-raid-channel' && i.user.id === interaction.user.id,
+        time: 60_000,
+      });
+      const raidChannelId = raidSelect.values[0];
+      await raidSelect.update({ content: `Selected <#${raidChannelId}>`, components: [] });
 
       await supabase.from('guild_configs').upsert({
         discord_guild_id: guildId,
