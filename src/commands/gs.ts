@@ -2,7 +2,10 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   EmbedBuilder,
-  User
+  User,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuInteraction
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
@@ -14,6 +17,8 @@ function gsColor(score?: number) {
   return 0x00ff00; // green
 }
 
+const SET_SELECT_ID = (score: number) => `gs-set-select:${score}`;
+
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('gs')
@@ -23,7 +28,7 @@ const command: Command = {
         .setName('set')
         .setDescription('Set a character GearScore')
         .addStringOption((opt) =>
-          opt.setName('character').setDescription('Character name').setRequired(true)
+          opt.setName('character').setDescription('Character name').setRequired(false)
         )
         .addIntegerOption((opt) =>
           opt
@@ -43,7 +48,7 @@ const command: Command = {
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'set') {
-      const character = interaction.options.getString('character', true);
+      const characterOpt = interaction.options.getString('character');
       const score = interaction.options.getInteger('score', true);
 
       if (score < 3000 || score > 7000) {
@@ -51,10 +56,47 @@ const command: Command = {
         return;
       }
 
-      await supabase
-        .from('GearScores')
-        .upsert({ character_name: character, gear_score: score, last_updated: new Date().toISOString() });
-      await interaction.reply({ content: `Set GearScore of ${character} to ${score}.`, ephemeral: true });
+      if (characterOpt) {
+        await supabase
+          .from('GearScores')
+          .upsert({ character_name: characterOpt, gear_score: score, last_updated: new Date().toISOString() });
+        await interaction.reply({ content: `Set GearScore of ${characterOpt} to ${score}.`, ephemeral: true });
+        return;
+      }
+
+      const { data: player } = await supabase
+        .from('Players')
+        .select('id, main_character')
+        .eq('discord_id', interaction.user.id)
+        .maybeSingle();
+
+      if (!player) {
+        await interaction.reply({ content: 'Register a character first.', ephemeral: true });
+        return;
+      }
+
+      const { data: alts } = await supabase
+        .from('Alts')
+        .select('character_name')
+        .eq('player_id', player.id);
+
+      const characters = [player.main_character, ...(alts?.map((a) => a.character_name) ?? [])];
+
+      if (characters.length === 1) {
+        await supabase
+          .from('GearScores')
+          .upsert({ character_name: characters[0], gear_score: score, last_updated: new Date().toISOString() });
+        await interaction.reply({ content: `Set GearScore of ${characters[0]} to ${score}.`, ephemeral: true });
+        return;
+      }
+
+      const select = new StringSelectMenuBuilder()
+        .setCustomId(SET_SELECT_ID(score))
+        .setPlaceholder('Select character')
+        .addOptions(characters.map((c) => ({ label: c, value: c })));
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+
+      await interaction.reply({ content: 'Choose a character:', components: [row], ephemeral: true });
     } else if (sub === 'view') {
       const user: User = interaction.options.getUser('user') ?? interaction.user;
 
@@ -97,3 +139,23 @@ const command: Command = {
 };
 
 export default command;
+
+export async function handleGsSetSelectMenu(
+  interaction: StringSelectMenuInteraction,
+  supabase: SupabaseClient
+) {
+  const [, scoreStr] = interaction.customId.split(':');
+  const score = parseInt(scoreStr, 10);
+  const character = interaction.values[0];
+
+  if (!character || isNaN(score)) {
+    await interaction.update({ content: 'Invalid selection.', components: [] });
+    return;
+  }
+
+  await supabase
+    .from('GearScores')
+    .upsert({ character_name: character, gear_score: score, last_updated: new Date().toISOString() });
+
+  await interaction.update({ content: `Set GearScore of ${character} to ${score}.`, components: [] });
+}
