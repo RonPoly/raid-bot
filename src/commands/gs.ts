@@ -35,7 +35,10 @@ const command: Command = {
             .setRequired(true)
         )
         .addStringOption((opt) =>
-          opt.setName('character').setDescription('Character name').setRequired(false)
+          opt
+            .setName('character')
+            .setDescription('Character name (must be spelled exactly as in-game)')
+            .setRequired(false)
         )
     )
     .addSubcommand((sub) =>

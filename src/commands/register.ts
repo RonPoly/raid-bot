@@ -10,12 +10,14 @@ const command: Command = {
     .setDescription('Register your character')
     .addStringOption((opt) =>
       opt.setName('character')
-        .setDescription('Character name')
+        .setDescription('Character name (must be spelled exactly as in-game)')
         .setRequired(true)
     )
     .addStringOption((opt) =>
       opt.setName('alt_of')
-        .setDescription('Main character if registering an alt')
+        .setDescription(
+          'Main character if registering an alt (must be spelled exactly as in-game)'
+        )
         .setRequired(false)
     ),
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
