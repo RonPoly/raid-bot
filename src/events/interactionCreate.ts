@@ -1,6 +1,9 @@
 import { Client, Events } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
+import { handleRaidCreateModal } from '../commands/raid';
+import { handleRaidSignupButton } from '../utils/button-handlers';
+import { handleGsSetSelectMenu } from '../commands/gs';
 
 export default function registerInteractionCreate(client: Client, commands: Map<string, Command>, supabase: SupabaseClient) {
   client.on(Events.InteractionCreate, async (interaction) => {
