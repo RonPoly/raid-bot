@@ -28,14 +28,14 @@ const command: Command = {
       sub
         .setName('set')
         .setDescription('Set a character GearScore')
-        .addStringOption((opt) =>
-          opt.setName('character').setDescription('Character name').setRequired(false)
-        )
         .addIntegerOption((opt) =>
           opt
             .setName('score')
             .setDescription('GearScore (3000-7000)')
             .setRequired(true)
+        )
+        .addStringOption((opt) =>
+          opt.setName('character').setDescription('Character name').setRequired(false)
         )
     )
     .addSubcommand((sub) =>
