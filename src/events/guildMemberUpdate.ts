@@ -1,14 +1,16 @@
 import { Client, Events } from 'discord.js';
 import { syncMemberRoles } from '../utils/role-sync';
+import { getGuildConfig } from '../utils/guild-config';
 
 export default function registerGuildMemberUpdate(client: Client) {
-  const guildName = process.env.WARMANE_GUILD_NAME || '';
-  const realm = process.env.WARMANE_REALM || 'Lordaeron';
-  const memberRoleId = process.env.MEMBER_ROLE_ID || '';
-
-  if (!guildName || !memberRoleId) return;
-
   client.on(Events.GuildMemberUpdate, async (_, newMember) => {
-    await syncMemberRoles(newMember, guildName, realm, memberRoleId);
+    const config = await getGuildConfig(newMember.guild.id);
+    if (!config || !config.warmane_guild_name || !config.member_role_id) return;
+    await syncMemberRoles(
+      newMember,
+      config.warmane_guild_name,
+      config.warmane_realm,
+      config.member_role_id
+    );
   });
 }

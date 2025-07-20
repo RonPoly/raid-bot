@@ -49,3 +49,14 @@ export interface RaidSignup {
   signed_up_at: string;
   comment?: string | null;
 }
+
+export interface GuildConfig {
+  discord_guild_id: string;
+  warmane_guild_name: string;
+  warmane_realm: string;
+  member_role_id?: string | null;
+  officer_role_id?: string | null;
+  raid_channel_id?: string | null;
+  setup_complete?: boolean;
+  setup_by_user_id?: string | null;
+}
