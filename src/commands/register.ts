@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from '
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { fetchCharacterSummary, getClassColor } from '../utils/warmane-api';
-import { getGuildConfig } from '../utils/guild-config';
+import { requireGuildConfig } from '../utils/guild-config';
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -22,9 +22,10 @@ const command: Command = {
     const character = interaction.options.getString('character', true);
     const altOf = interaction.options.getString('alt_of');
     const discordId = interaction.user.id;
-    const guildId = interaction.guildId ?? '';
-    const config = await getGuildConfig(guildId);
-    const realm = config?.warmane_realm || 'Lordaeron';
+
+    const config = await requireGuildConfig(interaction);
+    if (!config) return;
+    const realm = config.warmane_realm;
 
       if (!/^[A-Za-z\u00C0-\u017F]{2,12}$/.test(character)) {
         const embed = new EmbedBuilder()

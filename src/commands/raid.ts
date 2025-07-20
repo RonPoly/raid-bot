@@ -16,7 +16,7 @@ import {
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command, Raid } from '../types';
 import { buildRaidEmbed } from '../utils/embed-builder';
-import { getGuildConfig } from '../utils/guild-config';
+import { requireGuildConfig } from '../utils/guild-config';
 
 const CREATE_MODAL_ID = 'raid-create-modal';
 const SIGNUP_ID = (raidId: string) => `raid-signup:${raidId}`;
@@ -42,8 +42,8 @@ const command: Command = {
     ),
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
     const sub = interaction.options.getSubcommand();
-    const guildId = interaction.guildId ?? '';
-    const config = await getGuildConfig(guildId);
+    const config = await requireGuildConfig(interaction);
+    if (!config) return;
 
     if (sub === 'create') {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
