@@ -12,6 +12,7 @@ import {
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { fetchGuildSummary } from '../utils/warmane-api';
+import { cache } from '../utils/guild-config';
 
 const REALMS = ['Lordaeron', 'Icecrown', 'Frostmourne', 'Onyxia'];
 
@@ -201,6 +202,7 @@ const command: Command = {
         setup_complete: true,
         setup_by_user_id: interaction.user.id
       });
+      cache.delete(guildId);
 
       const embed = new EmbedBuilder()
         .setTitle('Setup Complete')
