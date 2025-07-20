@@ -9,6 +9,7 @@ import {
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
+import { buildCharacterSelectMenu } from '../utils/character-select';
 
 function gsColor(score?: number) {
   if (score === undefined) return 0x808080; // gray for unknown
@@ -64,39 +65,33 @@ const command: Command = {
         return;
       }
 
-      const { data: player } = await supabase
-        .from('Players')
-        .select('id, main_character')
-        .eq('discord_id', interaction.user.id)
-        .maybeSingle();
+      try {
+        const { menu, characters } = await buildCharacterSelectMenu(
+          supabase,
+          interaction.user.id,
+          SET_SELECT_ID(score)
+        );
 
-      if (!player) {
+        if (characters.length === 1) {
+          await supabase
+            .from('GearScores')
+            .upsert({
+              character_name: characters[0],
+              gear_score: score,
+              last_updated: new Date().toISOString(),
+            });
+          await interaction.reply({
+            content: `Set GearScore of ${characters[0]} to ${score}.`,
+            ephemeral: true,
+          });
+          return;
+        }
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+        await interaction.reply({ content: 'Choose a character:', components: [row], ephemeral: true });
+      } catch {
         await interaction.reply({ content: 'Register a character first.', ephemeral: true });
-        return;
       }
-
-      const { data: alts } = await supabase
-        .from('Alts')
-        .select('character_name')
-        .eq('player_id', player.id);
-
-      const characters = [player.main_character, ...(alts?.map((a) => a.character_name) ?? [])];
-
-      if (characters.length === 1) {
-        await supabase
-          .from('GearScores')
-          .upsert({ character_name: characters[0], gear_score: score, last_updated: new Date().toISOString() });
-        await interaction.reply({ content: `Set GearScore of ${characters[0]} to ${score}.`, ephemeral: true });
-        return;
-      }
-
-      const select = new StringSelectMenuBuilder()
-        .setCustomId(SET_SELECT_ID(score))
-        .setPlaceholder('Select character')
-        .addOptions(characters.map((c) => ({ label: c, value: c })));
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-
-      await interaction.reply({ content: 'Choose a character:', components: [row], ephemeral: true });
     } else if (sub === 'view') {
       const user: User = interaction.options.getUser('user') ?? interaction.user;
 
