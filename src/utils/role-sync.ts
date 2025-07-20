@@ -1,5 +1,5 @@
 import {
-  Guild,
+  Client,
   GuildMember,
   ActivityType,
   PermissionsBitField
@@ -140,10 +140,16 @@ export async function syncMemberRoles(
   }
 }
 
+export const syncTimers = new Map<string, NodeJS.Timeout>();
+
 export async function syncGuildRoles(
-  guild: Guild
+  client: Client,
+  guildId: string
 ) {
   try {
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return;
+
     const config = await getGuildConfig(guild.id);
     if (!config || !config.warmane_guild_name || !config.member_role_id) {
       return;
@@ -173,5 +179,31 @@ export async function syncGuildRoles(
     } else {
       console.error('Guild role sync error:', err);
     }
+  }
+}
+
+export function startRoleSyncTimer(
+  client: Client,
+  guildId: string,
+  intervalMinutes = 3
+) {
+  const existing = syncTimers.get(guildId);
+  if (existing) clearInterval(existing);
+
+  // Run an initial sync immediately
+  syncGuildRoles(client, guildId);
+
+  const timer = setInterval(async () => {
+    await syncGuildRoles(client, guildId);
+  }, intervalMinutes * 60 * 1000);
+
+  syncTimers.set(guildId, timer);
+}
+
+export function stopRoleSyncTimer(guildId: string) {
+  const timer = syncTimers.get(guildId);
+  if (timer) {
+    clearInterval(timer);
+    syncTimers.delete(guildId);
   }
 }

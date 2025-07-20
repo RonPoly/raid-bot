@@ -7,6 +7,7 @@ import { Command } from './types';
 import registerReady from './events/ready';
 import registerInteractionCreate from './events/interactionCreate';
 import registerGuildMemberUpdate from './events/guildMemberUpdate';
+import registerGuildCreate from './events/guildCreate';
 
 dotenv.config();
 
@@ -35,5 +36,6 @@ if (fs.existsSync(commandsPath)) {
 registerReady(client);
 registerInteractionCreate(client, commands, supabase);
 registerGuildMemberUpdate(client);
+registerGuildCreate(client);
 
 client.login(DISCORD_TOKEN);
