@@ -1,34 +1,41 @@
 import { Client, Events, ActivityType } from 'discord.js';
 import { syncGuildRoles } from '../utils/role-sync';
+import { getGuildConfig } from '../utils/guild-config';
+
+const SYNC_INTERVAL_MINUTES = 3;
 
 export default function registerReady(client: Client) {
-  const guildName = process.env.WARMANE_GUILD_NAME || '';
-
   client.once(Events.ClientReady, async () => {
     console.log('Warmane Raid Bot is online!');
-    if (client.user) {
-      const presence = guildName ? `Managing ${guildName} raids` : 'Managing raids';
-      client.user.setPresence({
-        activities: [{ name: presence, type: ActivityType.Playing }],
-        status: 'online'
-      });
-    }
+    for (const [, guild] of client.guilds.cache) {
+      const config = await getGuildConfig(guild.id);
+      if (!config) continue;
 
-    const guildId = process.env.GUILD_ID || '';
-    const realm = process.env.WARMANE_REALM || 'Lordaeron';
-    const memberRoleId = process.env.MEMBER_ROLE_ID || '';
-    const interval = parseInt(process.env.SYNC_INTERVAL_MINUTES || '3', 10);
+      if (client.user) {
+        const presence = config.warmane_guild_name
+          ? `Managing ${config.warmane_guild_name} raids`
+          : 'Managing raids';
+        client.user.setPresence({
+          activities: [{ name: presence, type: ActivityType.Playing }],
+          status: 'online'
+        });
+      }
 
-    if (guildId && guildName && memberRoleId) {
-      try {
-        const guild = await client.guilds.fetch(guildId);
-        await guild.members.fetch();
-        setInterval(async () => {
+      if (config.warmane_guild_name && config.member_role_id) {
+        try {
           await guild.members.fetch();
-          await syncGuildRoles(guild, guildName, realm, memberRoleId);
-        }, interval * 60 * 1000);
-      } catch (err) {
-        console.error('Failed to start role sync scheduler:', err);
+          setInterval(async () => {
+            await guild.members.fetch();
+            await syncGuildRoles(
+              guild,
+              config.warmane_guild_name,
+              config.warmane_realm,
+              config.member_role_id as string
+            );
+          }, SYNC_INTERVAL_MINUTES * 60 * 1000);
+        } catch (err) {
+          console.error('Failed to start role sync scheduler:', err);
+        }
       }
     }
   });

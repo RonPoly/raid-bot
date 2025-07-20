@@ -16,11 +16,11 @@ import {
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command, Raid } from '../types';
 import { buildRaidEmbed } from '../utils/embed-builder';
+import { getGuildConfig } from '../utils/guild-config';
 
 const CREATE_MODAL_ID = 'raid-create-modal';
 const SIGNUP_ID = (raidId: string) => `raid-signup:${raidId}`;
 const LEAVE_ID = (raidId: string) => `raid-leave:${raidId}`;
-const OFFICER_ROLE_ID = process.env.OFFICER_ROLE_ID || '';
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -42,6 +42,8 @@ const command: Command = {
     ),
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
     const sub = interaction.options.getSubcommand();
+    const guildId = interaction.guildId ?? '';
+    const config = await getGuildConfig(guildId);
 
     if (sub === 'create') {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
@@ -130,7 +132,8 @@ const command: Command = {
       await interaction.reply({ embeds: [embed], ephemeral: true });
     } else if (sub === 'cancel') {
       const member = interaction.member as GuildMember;
-      if (!OFFICER_ROLE_ID || !member?.roles?.cache?.has(OFFICER_ROLE_ID)) {
+      const officerRoleId = config?.officer_role_id || '';
+      if (!officerRoleId || !member?.roles?.cache?.has(officerRoleId)) {
         await interaction.reply({ content: 'Missing permission.', ephemeral: true });
         return;
       }
