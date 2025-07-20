@@ -6,11 +6,6 @@ export default function registerGuildMemberUpdate(client: Client) {
   client.on(Events.GuildMemberUpdate, async (_, newMember) => {
     const config = await getGuildConfig(newMember.guild.id);
     if (!config || !config.warmane_guild_name || !config.member_role_id) return;
-    await syncMemberRoles(
-      newMember,
-      config.warmane_guild_name,
-      config.warmane_realm,
-      config.member_role_id
-    );
+    await syncMemberRoles(newMember);
   });
 }

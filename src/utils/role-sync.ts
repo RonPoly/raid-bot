@@ -6,6 +6,7 @@ import {
 } from 'discord.js';
 import { fetchGuildMembers } from './warmane-api';
 import supabase from '../config/database';
+import { getGuildConfig } from './guild-config';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -71,9 +72,6 @@ async function removeRoleWithRetry(
 
 export async function syncMemberRoles(
   member: GuildMember,
-  guildName: string,
-  realm: string,
-  memberRoleId: string,
   roster?: any
 ) {
   try {
@@ -83,6 +81,15 @@ export async function syncMemberRoles(
     ) {
       return;
     }
+
+    const config = await getGuildConfig(member.guild.id);
+    if (!config || !config.warmane_guild_name || !config.member_role_id) {
+      return;
+    }
+
+    const guildName = config.warmane_guild_name;
+    const realm = config.warmane_realm;
+    const memberRoleId = config.member_role_id;
 
     const data = roster ?? (await fetchGuildMembers(guildName, realm));
     const members = data.members ?? data.roster ?? [];
@@ -134,15 +141,20 @@ export async function syncMemberRoles(
 }
 
 export async function syncGuildRoles(
-  guild: Guild,
-  guildName: string,
-  realm: string,
-  memberRoleId: string
+  guild: Guild
 ) {
   try {
+    const config = await getGuildConfig(guild.id);
+    if (!config || !config.warmane_guild_name || !config.member_role_id) {
+      return;
+    }
+
+    const guildName = config.warmane_guild_name;
+    const realm = config.warmane_realm;
+
     const roster = await fetchGuildMembers(guildName, realm);
     for (const [, member] of guild.members.cache) {
-      await syncMemberRoles(member, guildName, realm, memberRoleId, roster);
+      await syncMemberRoles(member, roster);
     }
 
     const members = roster.members ?? roster.roster ?? [];
