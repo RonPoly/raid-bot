@@ -15,7 +15,6 @@ export default function registerReady(client: Client) {
     }
 
     const guildId = process.env.GUILD_ID || '';
-    const guildName = process.env.WARMANE_GUILD_NAME || '';
     const realm = process.env.WARMANE_REALM || 'Lordaeron';
     const memberRoleId = process.env.MEMBER_ROLE_ID || '';
     const interval = parseInt(process.env.SYNC_INTERVAL_MINUTES || '3', 10);
