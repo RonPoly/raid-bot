@@ -1,7 +1,14 @@
 const BASE_URL = 'https://armory.warmane.com/api';
 
 export async function fetchGuildMembers(name: string, realm: string) {
-  const res = await fetch(`${BASE_URL}/guild/${encodeURIComponent(name)}/${encodeURIComponent(realm)}/members`);
+  const res = await fetch(
+    `${BASE_URL}/guild/${encodeURIComponent(name)}/${encodeURIComponent(realm)}/members`
+  );
+  if (res.status === 503) {
+    const err: any = new Error('Warmane API maintenance');
+    err.status = 503;
+    throw err;
+  }
   if (!res.ok) {
     throw new Error(`Warmane API error: ${res.status}`);
   }
