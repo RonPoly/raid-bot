@@ -13,15 +13,19 @@ A Discord bot built for managing raid signups and guild roster synchronization o
 The `.env` file uses the following keys:
 
 - `DISCORD_TOKEN` – bot token from Discord
+- `CLIENT_ID` – Discord application ID found in the Developer Portal
 - `GUILD_ID` – Discord guild ID
 - `MEMBER_ROLE_ID` – role granted to guild members
-- `OFFICER_ROLE_ID` – officer role ID
+- `OFFICER_ROLE_ID` – officer role ID (ask the user for this when adding the bot)
 - `SUPABASE_URL` – Supabase project URL
 - `SUPABASE_ANON_KEY` – Supabase anon key
 - `WARMANE_GUILD_NAME` – in-game guild name
 - `WARMANE_REALM` – Warmane realm, default `Lordaeron`
 - `SYNC_INTERVAL_MINUTES` – role sync interval in minutes
 - `MIN_GEARSCORE_ICC` – recommended minimum GearScore for ICC
+
+The `CLIENT_ID` can be found in the Discord Developer Portal under **Your App**
+ > **Application ID**.
 
 ## Running the Bot
 
