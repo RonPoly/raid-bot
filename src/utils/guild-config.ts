@@ -7,7 +7,7 @@ interface CachedConfig {
   expires: number;
 }
 
-const cache = new Map<string, CachedConfig>();
+export const cache = new Map<string, CachedConfig>();
 
 export async function getGuildConfig(
   guildId: string
