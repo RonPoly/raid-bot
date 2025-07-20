@@ -17,7 +17,8 @@ import { Command, Raid } from '../types';
 import { buildRaidEmbed } from '../utils/embed-builder';
 
 const CREATE_MODAL_ID = 'raid-create-modal';
-const SIGNUP_ID = (raidId: string, role: string) => `raid-signup:${raidId}:${role}`;
+const SIGNUP_ID = (raidId: string) => `raid-signup:${raidId}`;
+const LEAVE_ID = (raidId: string) => `raid-leave:${raidId}`;
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -53,7 +54,7 @@ const command: Command = {
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()
               .setCustomId('title')
-              .setLabel('Title')
+              .setLabel('Raid Title')
               .setStyle(TextInputStyle.Short)
               .setRequired(true)
           ),
@@ -61,22 +62,40 @@ const command: Command = {
             new TextInputBuilder()
               .setCustomId('instance')
               .setLabel('Instance')
+              .setPlaceholder('ICC25, RS10, etc')
               .setStyle(TextInputStyle.Short)
               .setRequired(true)
           ),
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()
-              .setCustomId('date')
-              .setLabel('YYYY-MM-DD HH:mm')
+              .setCustomId('datetime')
+              .setLabel('Date/Time')
               .setStyle(TextInputStyle.Short)
               .setRequired(true)
           ),
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()
-              .setCustomId('min_gs')
-              .setLabel('Minimum GS')
+              .setCustomId('tank_slots')
+              .setLabel('Tank slots needed')
               .setStyle(TextInputStyle.Short)
-              .setRequired(false)
+              .setValue('2')
+              .setRequired(true)
+          ),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(
+            new TextInputBuilder()
+              .setCustomId('healer_slots')
+              .setLabel('Healer slots needed')
+              .setStyle(TextInputStyle.Short)
+              .setValue('6')
+              .setRequired(true)
+          ),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(
+            new TextInputBuilder()
+              .setCustomId('dps_slots')
+              .setLabel('DPS slots needed')
+              .setStyle(TextInputStyle.Short)
+              .setValue('17')
+              .setRequired(true)
           )
         );
       await interaction.showModal(modal);
@@ -135,9 +154,10 @@ export async function handleRaidCreateModal(
 ) {
   const title = interaction.fields.getTextInputValue('title');
   const instance = interaction.fields.getTextInputValue('instance');
-  const date = interaction.fields.getTextInputValue('date');
-  const minGsStr = interaction.fields.getTextInputValue('min_gs');
-  const minGs = minGsStr ? parseInt(minGsStr, 10) : 5500;
+  const date = interaction.fields.getTextInputValue('datetime');
+  const tankSlots = parseInt(interaction.fields.getTextInputValue('tank_slots'), 10) || 2;
+  const healerSlots = parseInt(interaction.fields.getTextInputValue('healer_slots'), 10) || 6;
+  const dpsSlots = parseInt(interaction.fields.getTextInputValue('dps_slots'), 10) || 17;
 
   let raidLeaderId: string | null = null;
   const { data: player } = await supabase
@@ -153,7 +173,9 @@ export async function handleRaidCreateModal(
       title,
       instance,
       scheduled_date: date,
-      min_gearscore: minGs,
+      tank_slots: tankSlots,
+      healer_slots: healerSlots,
+      dps_slots: dpsSlots,
       raid_leader_id: raidLeaderId
     })
     .select('*')
@@ -161,16 +183,12 @@ export async function handleRaidCreateModal(
 
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(SIGNUP_ID(raid.id, 'tank'))
-      .setLabel('Tank')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(SIGNUP_ID(raid.id, 'healer'))
-      .setLabel('Healer')
+      .setCustomId(SIGNUP_ID(raid.id))
+      .setLabel('Sign Up')
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId(SIGNUP_ID(raid.id, 'dps'))
-      .setLabel('DPS')
+      .setCustomId(LEAVE_ID(raid.id))
+      .setLabel('Leave')
       .setStyle(ButtonStyle.Secondary)
   );
 

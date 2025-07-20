@@ -2,7 +2,11 @@ import { Client, Events } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { handleRaidCreateModal } from '../commands/raid';
-import { handleRaidSignupButton } from '../utils/button-handlers';
+import {
+  handleRaidSignupButton,
+  handleRaidLeaveButton,
+  handleRaidRoleSelect,
+} from '../utils/button-handlers';
 import { handleGsSetSelectMenu } from '../commands/gs';
 
 export default function registerInteractionCreate(client: Client, commands: Map<string, Command>, supabase: SupabaseClient) {
@@ -25,9 +29,13 @@ export default function registerInteractionCreate(client: Client, commands: Map<
     } else if (interaction.isButton()) {
       if (interaction.customId.startsWith('raid-signup:')) {
         await handleRaidSignupButton(interaction, supabase);
+      } else if (interaction.customId.startsWith('raid-leave:')) {
+        await handleRaidLeaveButton(interaction, supabase);
       }
     } else if (interaction.isStringSelectMenu()) {
-      if (interaction.customId.startsWith('gs-set-select:')) {
+      if (interaction.customId.startsWith('raid-role-select:')) {
+        await handleRaidRoleSelect(interaction, supabase);
+      } else if (interaction.customId.startsWith('gs-set-select:')) {
         await handleGsSetSelectMenu(interaction, supabase);
       }
     }
