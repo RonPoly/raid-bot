@@ -57,8 +57,7 @@ const command: Command = {
     )
     .addSubcommand((sub) =>
       sub.setName('status').setDescription('Show current configuration')
-    )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    ),
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
     if (!interaction.guild) {
       await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
