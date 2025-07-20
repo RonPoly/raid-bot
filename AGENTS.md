@@ -243,8 +243,29 @@ warmane-raid-bot/
 
 When working with this project, start prompts with:
 ```
-I'm working on the Warmane raid bot project (see AGENTS.md). 
+I'm working on the Warmane raid bot project (see AGENTS.md).
 I need to implement [specific feature].
+```
+
+## Example Setup Flow
+
+This example shows how an administrator configures the bot for their guild using
+the `/setup` command.
+
+```
+1. Admin runs /setup in the Discord server
+2. Bot DMs them: "Let's configure your Warmane guild! What is your guild name?"
+3. Admin replies: "The Sanctuary"
+4. Bot validates via API, then asks: "What realm? (Lordaeron/Icecrown/Frostmourne/Onyxia)"
+5. Admin replies: "Frostmourne"
+6. Bot: "Great! Now @ mention the role for guild members"
+7. Admin: "@Raiders"
+8. Bot: "@ mention the role for officers"
+9. Admin: "@Officers"
+10. Bot: "Finally, # mention the channel for raid signups"
+11. Admin: "#raid-signups"
+12. Bot saves config and shows confirmation
+13. In original channel: "✅ Setup complete for The Sanctuary on Frostmourne!"
 ```
 
 ## Environment Variables
