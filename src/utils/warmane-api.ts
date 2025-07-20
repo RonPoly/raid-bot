@@ -15,3 +15,20 @@ export async function fetchCharacterSummary(name: string, realm: string) {
   }
   return res.json();
 }
+
+export const CLASS_COLORS: Record<string, number> = {
+  'Death Knight': 0xc41f3b,
+  Druid: 0xff7d0a,
+  Hunter: 0xabd473,
+  Mage: 0x69ccf0,
+  Paladin: 0xf58cba,
+  Priest: 0xffffff,
+  Rogue: 0xfff569,
+  Shaman: 0x0070de,
+  Warlock: 0x9482c9,
+  Warrior: 0xc79c6e
+};
+
+export function getClassColor(className: string): number {
+  return CLASS_COLORS[className] ?? 0x2f3136;
+}
