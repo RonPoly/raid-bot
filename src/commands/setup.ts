@@ -8,19 +8,9 @@ import {
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
+import { fetchGuildSummary } from '../utils/warmane-api';
 
 const REALMS = ['Lordaeron', 'Icecrown', 'Frostmourne', 'Onyxia'];
-
-async function validateGuild(name: string, realm: string): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `http://armory.warmane.com/api/guild/${encodeURIComponent(name)}/${encodeURIComponent(realm)}/summary`
-    );
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
 async function ask(
   channel: DMChannel,
@@ -94,11 +84,14 @@ const command: Command = {
           return match ? null : 'Invalid realm. Please choose from the listed options.';
         });
         const realmFormatted = REALMS.find(r => r.toLowerCase() === realm.toLowerCase()) || realm;
-        if (await validateGuild(guildName, realmFormatted)) {
+        try {
+          const summary = await fetchGuildSummary(guildName, realmFormatted);
           realm = realmFormatted;
+          await dm.send(`Found guild **${summary.name}** on ${summary.realm} with ${summary.membercount} members.`);
           break;
+        } catch {
+          await dm.send(`Could not find guild '${guildName}' on ${realmFormatted}. Please check spelling and try again.`);
         }
-        await dm.send("Guild not found on that realm. Let's try again.");
       }
 
       const memberRoleId = await ask(dm, interaction.user.id, 'Please @ mention the role for guild members', (input) => {

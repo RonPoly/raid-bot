@@ -1,8 +1,12 @@
 const BASE_URL = 'https://armory.warmane.com/api';
 
+function encodeGuildName(name: string): string {
+  return encodeURIComponent(name).replace(/%20/g, '+');
+}
+
 export async function fetchGuildMembers(name: string, realm: string) {
   const res = await fetch(
-    `${BASE_URL}/guild/${encodeURIComponent(name)}/${encodeURIComponent(realm)}/members`
+    `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/members`
   );
   if (res.status === 503) {
     const err: any = new Error('Warmane API maintenance');
@@ -19,6 +23,18 @@ export async function fetchCharacterSummary(name: string, realm: string) {
   const res = await fetch(`${BASE_URL}/character/${encodeURIComponent(name)}/${encodeURIComponent(realm)}/summary`);
   if (!res.ok) {
     throw new Error(`Warmane API error: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchGuildSummary(name: string, realm: string) {
+  const res = await fetch(
+    `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/summary`
+  );
+  if (!res.ok) {
+    const err: any = new Error(`Warmane API error: ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
