@@ -1,0 +1,152 @@
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  ChannelType,
+  DMChannel,
+} from 'discord.js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Command } from '../types';
+
+const REALMS = ['Lordaeron', 'Icecrown', 'Frostmourne', 'Onyxia'];
+
+async function validateGuild(name: string, realm: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `http://armory.warmane.com/api/guild/${encodeURIComponent(name)}/${encodeURIComponent(realm)}/summary`
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function ask(
+  channel: DMChannel,
+  userId: string,
+  question: string,
+  validate?: (input: string) => Promise<string | null> | string | null
+): Promise<string> {
+  while (true) {
+    await channel.send(`${question} (type \`cancel\` to abort)`);
+    const collected = await channel.awaitMessages({
+      filter: (m) => m.author.id === userId,
+      max: 1,
+      time: 60_000,
+    });
+
+    const msg = collected.first();
+    if (!msg) {
+      await channel.send('Setup timed out.');
+      throw new Error('cancel');
+    }
+    const content = msg.content.trim();
+    if (content.toLowerCase() === 'cancel') {
+      await channel.send('Setup cancelled.');
+      throw new Error('cancel');
+    }
+    if (validate) {
+      const result = await validate(content);
+      if (result === null) {
+        return content;
+      }
+      await channel.send(result);
+      continue;
+    }
+    return content;
+  }
+}
+
+const command: Command = {
+  data: new SlashCommandBuilder()
+    .setName('setup')
+    .setDescription('Run initial setup wizard')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
+    if (!interaction.guild) {
+      await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+      return;
+    }
+
+    const guildId = interaction.guild.id;
+    const { data: existing } = await supabase
+      .from('guild_configs')
+      .select('*')
+      .eq('discord_guild_id', guildId)
+      .maybeSingle();
+
+    if (existing && existing.setup_complete) {
+      await interaction.reply({ content: 'Setup already completed for this server.', ephemeral: true });
+      return;
+    }
+
+    await interaction.reply({ content: 'Check your DMs to continue setup.', ephemeral: true });
+    const dm = await interaction.user.createDM();
+
+    try {
+      let guildName = '';
+      let realm = '';
+      while (true) {
+        guildName = await ask(dm, interaction.user.id, 'What is your Warmane guild name? (Example: The Sanctuary)');
+        realm = await ask(dm, interaction.user.id, 'What realm is your guild on? (Options: Lordaeron, Icecrown, Frostmourne, Onyxia)', (input) => {
+          const match = REALMS.find(r => r.toLowerCase() === input.toLowerCase());
+          return match ? null : 'Invalid realm. Please choose from the listed options.';
+        });
+        const realmFormatted = REALMS.find(r => r.toLowerCase() === realm.toLowerCase()) || realm;
+        if (await validateGuild(guildName, realmFormatted)) {
+          realm = realmFormatted;
+          break;
+        }
+        await dm.send("Guild not found on that realm. Let's try again.");
+      }
+
+      const memberRoleId = await ask(dm, interaction.user.id, 'Please @ mention the role for guild members', (input) => {
+        const match = input.match(/<@&(\d+)>/);
+        if (!match) return 'Please mention a role.';
+        return interaction.guild!.roles.cache.has(match[1]) ? null : 'Role not found in this server.';
+      }).then(res => res.match(/<@&(\d+)>/)![1]);
+
+      const officerRoleId = await ask(dm, interaction.user.id, 'Please @ mention the role for officers', (input) => {
+        const match = input.match(/<@&(\d+)>/);
+        if (!match) return 'Please mention a role.';
+        return interaction.guild!.roles.cache.has(match[1]) ? null : 'Role not found in this server.';
+      }).then(res => res.match(/<@&(\d+)>/)![1]);
+
+      const raidChannelId = await ask(dm, interaction.user.id, 'Please # mention the channel for raid signups', (input) => {
+        const match = input.match(/<#(\d+)>/);
+        if (!match) return 'Please mention a channel.';
+        const chan = interaction.guild!.channels.cache.get(match[1]);
+        return chan && chan.type === ChannelType.GuildText ? null : 'Channel not found or not text channel.';
+      }).then(res => res.match(/<#(\d+)>/)![1]);
+
+      await supabase.from('guild_configs').upsert({
+        discord_guild_id: guildId,
+        warmane_guild_name: guildName,
+        warmane_realm: realm,
+        member_role_id: memberRoleId,
+        officer_role_id: officerRoleId,
+        raid_channel_id: raidChannelId,
+        setup_complete: true,
+        setup_by_user_id: interaction.user.id
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle('Setup Complete')
+        .addFields(
+          { name: 'Guild', value: guildName, inline: true },
+          { name: 'Realm', value: realm, inline: true },
+          { name: 'Member Role', value: `<@&${memberRoleId}>`, inline: true },
+          { name: 'Officer Role', value: `<@&${officerRoleId}>`, inline: true },
+          { name: 'Signup Channel', value: `<#${raidChannelId}>`, inline: true }
+        );
+
+      await dm.send({ embeds: [embed] });
+      await interaction.followUp({ content: 'Setup complete!', ephemeral: true });
+    } catch {
+      await dm.send('Setup aborted.');
+    }
+  }
+};
+
+export default command;
