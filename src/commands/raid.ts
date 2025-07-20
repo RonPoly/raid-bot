@@ -10,7 +10,8 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ModalSubmitInteraction,
-  TextChannel
+  TextChannel,
+  GuildMember
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command, Raid } from '../types';
@@ -19,6 +20,7 @@ import { buildRaidEmbed } from '../utils/embed-builder';
 const CREATE_MODAL_ID = 'raid-create-modal';
 const SIGNUP_ID = (raidId: string) => `raid-signup:${raidId}`;
 const LEAVE_ID = (raidId: string) => `raid-leave:${raidId}`;
+const OFFICER_ROLE_ID = process.env.OFFICER_ROLE_ID || '';
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -100,9 +102,11 @@ const command: Command = {
         );
       await interaction.showModal(modal);
     } else if (sub === 'list') {
+      const now = new Date().toISOString();
       const { data: raids } = await supabase
         .from('Raids')
-        .select('id, title, instance, scheduled_date, status')
+        .select('*')
+        .gt('scheduled_date', now)
         .order('scheduled_date', { ascending: true });
 
       if (!raids || raids.length === 0) {
@@ -111,12 +115,22 @@ const command: Command = {
       }
 
       const embed = new EmbedBuilder().setTitle('Upcoming Raids');
-      for (const r of raids as Raid[]) {
-        embed.addFields({ name: r.id, value: `${r.instance} - ${r.scheduled_date}` });
+      for (const raid of raids as Raid[]) {
+        const { data: signups } = await supabase
+          .from('RaidSignups')
+          .select('id')
+          .eq('raid_id', raid.id);
+        const count = signups?.length ?? 0;
+        const total = raid.tank_slots + raid.healer_slots + raid.dps_slots;
+        embed.addFields({
+          name: `${raid.title} - ${raid.instance}`,
+          value: `Date: ${raid.scheduled_date}\nSignups: ${count}/${total}\nID: ${raid.id}`,
+        });
       }
       await interaction.reply({ embeds: [embed], ephemeral: true });
     } else if (sub === 'cancel') {
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      const member = interaction.member as GuildMember;
+      if (!OFFICER_ROLE_ID || !member?.roles?.cache?.has(OFFICER_ROLE_ID)) {
         await interaction.reply({ content: 'Missing permission.', ephemeral: true });
         return;
       }
@@ -124,7 +138,7 @@ const command: Command = {
       const id = interaction.options.getString('id', true);
       const { data: raid } = await supabase
         .from('Raids')
-        .update({ status: 'cancelled' })
+        .delete()
         .eq('id', id)
         .select('signup_message_id')
         .maybeSingle();
@@ -134,15 +148,14 @@ const command: Command = {
         return;
       }
 
-      if (raid.signup_message_id && interaction.channel) {
+      if (raid.signup_message_id) {
         try {
           const chan = interaction.channel as TextChannel;
           const msg = await chan.messages.fetch(raid.signup_message_id);
-          await msg.edit({ content: 'Raid cancelled.', components: [] });
+          await msg.delete();
         } catch {}
       }
 
-      await supabase.from('RaidSignups').delete().eq('raid_id', id);
       await interaction.reply({ content: 'Raid cancelled.', ephemeral: true });
     }
   }
