@@ -137,7 +137,7 @@ export async function handleRaidLeaveButton(
 
   const { data: player } = await supabase
     .from('Players')
-    .select('main_character')
+    .select('id, main_character')
     .eq('discord_id', interaction.user.id)
     .maybeSingle();
   if (!player) {
@@ -145,11 +145,21 @@ export async function handleRaidLeaveButton(
     return;
   }
 
+  const { data: alts } = await supabase
+    .from('Alts')
+    .select('character_name')
+    .eq('player_id', player.id);
+
+  const characters = [
+    player.main_character,
+    ...((alts?.map(a => a.character_name)) ?? [])
+  ];
+
   await supabase
     .from('RaidSignups')
     .delete()
     .eq('raid_id', raidId)
-    .eq('character_name', player.main_character);
+    .in('character_name', characters);
 
   const { data: signups } = await supabase
     .from('RaidSignups')

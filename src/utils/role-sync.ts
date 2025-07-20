@@ -5,6 +5,7 @@ import {
   PermissionsBitField
 } from 'discord.js';
 import { fetchGuildMembers } from './warmane-api';
+import supabase from '../config/database';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -85,8 +86,33 @@ export async function syncMemberRoles(
 
     const data = roster ?? (await fetchGuildMembers(guildName, realm));
     const members = data.members ?? data.roster ?? [];
-    const inGuild = members.some(
-      (m: any) => normalize(m.name) === normalize(member.displayName)
+
+    const { data: player } = await supabase
+      .from('Players')
+      .select('id, main_character')
+      .eq('discord_id', member.id)
+      .maybeSingle();
+
+    if (!player) {
+      if (member.roles.cache.has(memberRoleId)) {
+        console.log(`Removing member role from ${member.displayName}`);
+        await removeRoleWithRetry(member, memberRoleId);
+      }
+      return;
+    }
+
+    const { data: alts } = await supabase
+      .from('Alts')
+      .select('character_name')
+      .eq('player_id', player.id);
+
+    const characters = [
+      player.main_character,
+      ...((alts?.map(a => a.character_name)) ?? [])
+    ];
+
+    const inGuild = members.some((m: any) =>
+      characters.some(c => normalize(m.name) === normalize(c))
     );
 
     if (inGuild) {
