@@ -1,12 +1,14 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
-import { createClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Command } from '../types';
 
-export const data = new SlashCommandBuilder()
-  .setName('ping')
-  .setDescription('Replies with Pong!');
+const command: Command = {
+  data: new SlashCommandBuilder()
+    .setName('ping')
+    .setDescription('Replies with Pong!'),
+  async execute(interaction: ChatInputCommandInteraction, _supabase: SupabaseClient) {
+    await interaction.reply('Pong!');
+  }
+};
 
-export async function execute(interaction: ChatInputCommandInteraction) {
-  await interaction.reply('Pong!');
-}
-
-export default { data, execute };
+export default command;
