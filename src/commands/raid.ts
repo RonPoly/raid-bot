@@ -5,18 +5,18 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ActionRowBuilder,
-  PermissionFlagsBits,
   EmbedBuilder,
   ButtonBuilder,
   ButtonStyle,
   ModalSubmitInteraction,
   TextChannel,
-  GuildMember
+  GuildMember,
+  ChannelType
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command, Raid } from '../types';
 import { buildRaidEmbed } from '../utils/embed-builder';
-import { requireGuildConfig } from '../utils/guild-config';
+import { requireGuildConfig, getGuildConfig } from '../utils/guild-config';
 
 const CREATE_MODAL_ID = 'raid-create-modal';
 const SIGNUP_ID = (raidId: string) => `raid-signup:${raidId}`;
@@ -46,7 +46,9 @@ const command: Command = {
     if (!config) return;
 
     if (sub === 'create') {
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      const member = interaction.member as GuildMember;
+      const officerRoleId = config.officer_role_id || '';
+      if (!officerRoleId || !member?.roles?.cache?.has(officerRoleId)) {
         await interaction.reply({ content: 'Missing permission.', ephemeral: true });
         return;
       }
@@ -153,9 +155,11 @@ const command: Command = {
 
       if (raid.signup_message_id) {
         try {
-          const chan = interaction.channel as TextChannel;
-          const msg = await chan.messages.fetch(raid.signup_message_id);
-          await msg.delete();
+          const chan = interaction.guild?.channels.cache.get(config.raid_channel_id || '') as TextChannel | undefined;
+          if (chan) {
+            const msg = await chan.messages.fetch(raid.signup_message_id);
+            await msg.delete();
+          }
         } catch {}
       }
 
@@ -168,6 +172,12 @@ export async function handleRaidCreateModal(
   interaction: ModalSubmitInteraction,
   supabase: SupabaseClient
 ) {
+  const config = await getGuildConfig(interaction.guildId ?? '');
+  if (!config || !config.raid_channel_id) {
+    await interaction.reply({ content: 'Guild is not fully configured.', ephemeral: true });
+    return;
+  }
+
   const title = interaction.fields.getTextInputValue('title');
   const instance = interaction.fields.getTextInputValue('instance');
   const date = interaction.fields.getTextInputValue('datetime');
@@ -209,7 +219,11 @@ export async function handleRaidCreateModal(
   );
 
   const embed = buildRaidEmbed(raid as Raid);
-  const channel = interaction.channel as TextChannel;
+  const channel = interaction.guild?.channels.cache.get(config.raid_channel_id) as TextChannel | undefined;
+  if (!channel || channel.type !== ChannelType.GuildText) {
+    await interaction.reply({ content: 'Raid channel not found.', ephemeral: true });
+    return;
+  }
   const msg = await channel.send({ embeds: [embed], components: [buttons] });
 
   await supabase.from('Raids').update({ signup_message_id: msg.id }).eq('id', raid.id);

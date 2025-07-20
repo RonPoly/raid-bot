@@ -26,12 +26,7 @@ export default function registerReady(client: Client) {
           await guild.members.fetch();
           setInterval(async () => {
             await guild.members.fetch();
-            await syncGuildRoles(
-              guild,
-              config.warmane_guild_name,
-              config.warmane_realm,
-              config.member_role_id as string
-            );
+            await syncGuildRoles(guild);
           }, SYNC_INTERVAL_MINUTES * 60 * 1000);
         } catch (err) {
           console.error('Failed to start role sync scheduler:', err);
