@@ -32,7 +32,8 @@ export function buildRaidEmbed(
         const name = encodeURIComponent(s.character_name);
         const realmEnc = encodeURIComponent(realm);
         const link = `[${s.character_name}](https://armory.warmane.com/character/${name}/${realmEnc})`;
-        return `• ${link}${s.gear_score ? ` - ${s.gear_score} GS` : ''}`;
+        const gsText = typeof s.gear_score === 'number' ? `${s.gear_score} GS` : 'No GS';
+        return `• ${link} - ${gsText}`;
       });
     const open = max - members.length;
     if (open > 0) {

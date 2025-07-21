@@ -9,6 +9,7 @@ import {
   handleRaidCharacterSelect,
 } from '../utils/button-handlers';
 import { handleGsSetSelectMenu } from '../commands/gs';
+import { logError } from '../utils/logger';
 
 export default function registerInteractionCreate(client: Client, commands: Map<string, Command>, supabase: SupabaseClient) {
   client.on(Events.InteractionCreate, async (interaction) => {
@@ -18,7 +19,7 @@ export default function registerInteractionCreate(client: Client, commands: Map<
       try {
         await command.execute(interaction, supabase);
       } catch (err) {
-        console.error('Command error:', err);
+        logError(err);
         if (!interaction.replied) {
           await interaction.reply({ content: 'An error occurred.', ephemeral: true });
         }
