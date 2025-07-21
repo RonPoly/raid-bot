@@ -104,3 +104,45 @@ CREATE TABLE IF NOT EXISTS raid_logs (
     role TEXT NOT NULL,
     logged_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ================================================================
+-- Helper function to look up a player by Discord ID or character name
+-- ================================================================
+CREATE OR REPLACE FUNCTION get_player_by_name_or_discord_id(
+    p_guild_id TEXT,
+    p_query TEXT
+)
+RETURNS TABLE(player_id UUID, found_name TEXT) AS $$
+DECLARE
+    v_discord_id TEXT;
+BEGIN
+    -- Check if the query is a Discord mention e.g., <@12345>
+    IF p_query ~ '^<@!?(\d+)>$' THEN
+        v_discord_id := substring(p_query from '<@!?(\d+)>' );
+    -- Check if the query is a raw Discord ID
+    ELSIF p_query ~ '^\d{17,}$' THEN
+        v_discord_id := p_query;
+    ELSE
+        v_discord_id := NULL;
+    END IF;
+
+    IF v_discord_id IS NOT NULL THEN
+        -- Search by Discord ID, prioritizing the main character
+        RETURN QUERY
+        SELECT p.id, p.character_name
+        FROM public.players p
+        WHERE p.guild_id = p_guild_id
+          AND p.discord_id = v_discord_id
+        ORDER BY p.is_main DESC, p.gear_score DESC
+        LIMIT 1;
+    ELSE
+        -- Search by character name (case-insensitive)
+        RETURN QUERY
+        SELECT p.id, p.character_name
+        FROM public.players p
+        WHERE p.guild_id = p_guild_id
+          AND lower(p.character_name) = lower(p_query)
+        LIMIT 1;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
