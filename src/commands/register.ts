@@ -41,7 +41,7 @@ const command: Command = {
         new ActionRowBuilder<TextInputBuilder>().addComponents(
           new TextInputBuilder()
             .setCustomId('character_name')
-            .setLabel('Character Name (case sensitive - exact in-game)')
+            .setLabel('Character Name (exact - case sensitive)')
             .setPlaceholder('e.g. Arth\u00e1s')
             .setStyle(TextInputStyle.Short)
             .setRequired(true),
