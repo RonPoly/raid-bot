@@ -45,12 +45,37 @@ const command: Command = {
     if (characterOpt) {
       await interaction.deferReply();
       try {
-        const summary = await fetchCharacterSummary(characterOpt, config.warmane_realm);
-        if (summary.error) {
-          await interaction.editReply({ content: `Warmane API error: ${summary.error}` });
-          return;
+        let summary;
+        let cachedGs: number | null = null;
+        try {
+          summary = await fetchCharacterSummary(characterOpt, config.warmane_realm);
+          if (summary.error) {
+            await interaction.editReply({ content: `Warmane API error: ${summary.error}` });
+            return;
+          }
+        } catch (err: any) {
+          if (err.status === 503) {
+            await interaction.editReply({
+              content: 'Warmane API is currently under maintenance. Please try again later.',
+            });
+            return;
+          }
+          const { data } = await supabase
+            .from('players')
+            .select('gear_score')
+            .eq('guild_id', interaction.guildId || '')
+            .eq('character_name', characterOpt)
+            .maybeSingle();
+          if (data) {
+            cachedGs = data.gear_score;
+            summary = { name: characterOpt, equipment: [], class: null } as any;
+          } else {
+            throw err;
+          }
         }
-        const gs = calculateGearScore(summary.equipment as EquippedItem[], summary.class);
+        const gs = summary.equipment && summary.equipment.length > 0
+          ? calculateGearScore(summary.equipment as EquippedItem[], summary.class)
+          : cachedGs ?? 0;
         await supabase
           .from('players')
           .update({ gear_score: gs, last_updated: new Date().toISOString() })
@@ -80,12 +105,36 @@ const command: Command = {
 
       if (characters.length === 1) {
         const name = characters[0];
-        const summary = await fetchCharacterSummary(name, config.warmane_realm);
-        if (summary.error) {
-          await interaction.reply({ content: `Warmane API error: ${summary.error}`, ephemeral: true });
-          return;
+        let summary;
+        let cachedGs: number | null = null;
+        try {
+          summary = await fetchCharacterSummary(name, config.warmane_realm);
+          if (summary.error) {
+            await interaction.reply({ content: `Warmane API error: ${summary.error}`, ephemeral: true });
+            return;
+          }
+        } catch (err: any) {
+          if (err.status === 503) {
+            await interaction.reply({ content: 'Warmane API is currently under maintenance. Please try again later.', ephemeral: true });
+            return;
+          }
+          const { data } = await supabase
+            .from('players')
+            .select('gear_score')
+            .eq('guild_id', interaction.guildId || '')
+            .eq('character_name', name)
+            .maybeSingle();
+          if (data) {
+            cachedGs = data.gear_score;
+            summary = { name, equipment: [], class: null } as any;
+          } else {
+            await interaction.reply({ content: 'Failed to fetch character.', ephemeral: true });
+            return;
+          }
         }
-        const gs = calculateGearScore(summary.equipment as EquippedItem[], summary.class);
+        const gs = summary.equipment && summary.equipment.length > 0
+          ? calculateGearScore(summary.equipment as EquippedItem[], summary.class)
+          : cachedGs ?? 0;
         await supabase
           .from('players')
           .update({ gear_score: gs, last_updated: new Date().toISOString() })
@@ -119,12 +168,35 @@ export async function handleGsSelectMenu(
   const config = await getGuildConfig(interaction.guildId || '');
   if (!config) return;
   try {
-    const summary = await fetchCharacterSummary(character, config.warmane_realm);
-    if (summary.error) {
-      await interaction.update({ content: `Warmane API error: ${summary.error}`, components: [] });
-      return;
+    let summary;
+    let cachedGs: number | null = null;
+    try {
+      summary = await fetchCharacterSummary(character, config.warmane_realm);
+      if (summary.error) {
+        await interaction.update({ content: `Warmane API error: ${summary.error}`, components: [] });
+        return;
+      }
+    } catch (err: any) {
+      if (err.status === 503) {
+        await interaction.update({ content: 'Warmane API is currently under maintenance. Please try again later.', components: [] });
+        return;
+      }
+      const { data } = await supabase
+        .from('players')
+        .select('gear_score')
+        .eq('guild_id', interaction.guildId || '')
+        .eq('character_name', character)
+        .maybeSingle();
+      if (data) {
+        cachedGs = data.gear_score;
+        summary = { name: character, equipment: [], class: null } as any;
+      } else {
+        throw err;
+      }
     }
-    const gs = calculateGearScore(summary.equipment as EquippedItem[], summary.class);
+    const gs = summary.equipment && summary.equipment.length > 0
+      ? calculateGearScore(summary.equipment as EquippedItem[], summary.class)
+      : cachedGs ?? 0;
     await supabase
       .from('players')
       .update({ gear_score: gs, last_updated: new Date().toISOString() })

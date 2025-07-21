@@ -62,10 +62,34 @@ const command: Command = {
       const realm = config.warmane_realm;
 
       try {
-        const summary = await fetchCharacterSummary(name, realm);
-        if (summary.error) {
-          await submit.editReply({ content: `Warmane API error: ${summary.error}` });
-          return;
+        let summary;
+        let existingGs: number | null = null;
+        try {
+          summary = await fetchCharacterSummary(name, realm);
+          if (summary.error) {
+            await submit.editReply({ content: `Warmane API error: ${summary.error}` });
+            return;
+          }
+        } catch (err: any) {
+          if (err.status === 503) {
+            await submit.editReply({
+              content:
+                'Warmane API is currently under maintenance. Please try again later.',
+            });
+            return;
+          }
+          const { data: existing } = await supabase
+            .from('players')
+            .select('class, gear_score')
+            .eq('guild_id', interaction.guildId || '')
+            .eq('character_name', name)
+            .maybeSingle();
+          if (existing) {
+            summary = { name, class: existing.class, equipment: [] } as any;
+            existingGs = existing.gear_score;
+          } else {
+            throw err;
+          }
         }
 
         const rosterData = await fetchGuildMembers(config.warmane_guild_name, realm);
@@ -79,7 +103,9 @@ const command: Command = {
         }
 
         console.log('Warmane equipment data:', summary.equipment);
-        const gearScore = calculateGearScore(summary.equipment, summary.class);
+        const gearScore = summary.equipment && summary.equipment.length > 0
+          ? calculateGearScore(summary.equipment, summary.class)
+          : existingGs ?? 0;
         const { error } = await supabase.from('players').insert({
           guild_id: interaction.guildId,
           discord_id: interaction.user.id,
