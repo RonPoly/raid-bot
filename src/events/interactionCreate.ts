@@ -2,6 +2,7 @@ import { Client, Events } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { handleRaidCreateModal, handleRaidInstanceSelect } from '../commands/raid';
+import { handleRegisterModal } from '../commands/register';
 import {
   handleRaidSignupButton,
   handleRaidLeaveButton,
@@ -31,6 +32,8 @@ export default function registerInteractionCreate(client: Client, commands: Map<
     } else if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith('raid-create-modal')) {
         await handleRaidCreateModal(interaction, supabase);
+      } else if (interaction.customId === 'register_modal') {
+        await handleRegisterModal(interaction, supabase);
       }
     } else if (interaction.isButton()) {
       if (interaction.customId.startsWith('raid-signup:')) {
