@@ -113,7 +113,7 @@ export async function syncUserRoles(member: GuildMember): Promise<void> {
 
 export async function syncMemberRoles(
   member: GuildMember,
-  roster?: any
+  roster: any
 ) {
   try {
     if (
@@ -130,13 +130,8 @@ export async function syncMemberRoles(
       return;
     }
 
-    const guildName = config.warmane_guild_name;
-    const realm = config.warmane_realm;
     const memberRoleId = config.member_role_id;
-
-    const data = roster ?? (await fetchGuildMembers(guildName, realm));
-    console.log('[RoleSync] Warmane roster response:', JSON.stringify(data));
-    const members = data.members ?? data.roster ?? [];
+    const members = roster.members ?? roster.roster ?? [];
 
     const { data: rows } = await supabase
       .from('players')
@@ -188,7 +183,8 @@ export const syncTimers = new Map<string, NodeJS.Timeout>();
 
 export async function syncGuildRoles(
   client: Client,
-  guildId: string
+  guildId: string,
+  forceRosterRefresh = false
 ) {
   try {
     if (isSyncing) {
@@ -211,7 +207,7 @@ export async function syncGuildRoles(
     const guildName = config.warmane_guild_name;
     const realm = config.warmane_realm;
 
-    const roster = await fetchGuildMembers(guildName, realm);
+    const roster = await fetchGuildMembers(guildName, realm, forceRosterRefresh);
     console.log('[RoleSync] Full roster fetched:', JSON.stringify(roster));
     for (const [, member] of guild.members.cache) {
       await syncMemberRoles(member, roster);
