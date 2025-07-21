@@ -20,8 +20,12 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         await command.execute(interaction, supabase);
       } catch (err) {
         logError(err);
-        if (!interaction.replied) {
-          await interaction.reply({ content: 'An error occurred.', ephemeral: true });
+        if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+          try {
+            await interaction.reply({ content: 'An error occurred.', ephemeral: true });
+          } catch (e) {
+            logError(e);
+          }
         }
       }
     } else if (interaction.isModalSubmit()) {

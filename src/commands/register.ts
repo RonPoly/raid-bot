@@ -31,9 +31,6 @@ const command: Command = {
       return;
     }
 
-    const config = await requireGuildConfig(interaction);
-    if (!config) return;
-
     const modal = new ModalBuilder()
       .setCustomId('register_modal')
       .setTitle('Register Character')
@@ -57,6 +54,12 @@ const command: Command = {
       });
 
       await submit.deferReply({ ephemeral: true });
+
+      const config = await requireGuildConfig(interaction);
+      if (!config) {
+        await submit.editReply({ content: 'This server needs to be configured. An admin should run /setup' });
+        return;
+      }
 
       const name = submit.fields.getTextInputValue('character_name').trim();
       const realm = config.warmane_realm;
