@@ -2,10 +2,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GEAR_SLOT_WEIGHTS } from './gearscore-weights';
 
+const QUALITY_MODIFIERS: Record<string, number> = {
+  Epic: 1.0,
+  Rare: 0.81
+};
+
 interface Item {
   itemId: number;
   itemLevel: number;
   slot: string;
+  quality?: string;
 }
 
 class GearScoreCalculator {
@@ -52,9 +58,15 @@ class GearScoreCalculator {
 
       const slot = itemData.slot;
       const weight = GEAR_SLOT_WEIGHTS[slot] || 0;
+      const quality = itemData.quality || 'Epic';
+      const qualityMod = QUALITY_MODIFIERS[quality] ?? 1.0;
+
       if (weight > 0) {
-        totalScore += itemData.itemLevel * weight;
-        console.log(`Added ${itemData.itemLevel} * ${weight} for slot ${slot} (ID ${itemId})`);
+        const contribution = itemData.itemLevel * weight * qualityMod;
+        totalScore += contribution;
+        console.log(
+          `Item ${itemId} (${slot}) ilvl ${itemData.itemLevel} quality ${quality} -> ${itemData.itemLevel} * ${weight} * ${qualityMod} = ${contribution}`
+        );
       } else {
         console.log(`Slot ${slot} (ID ${itemId}) has no weight`);
       }

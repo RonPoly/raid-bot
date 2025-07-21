@@ -120,6 +120,8 @@ export async function syncMemberRoles(
       return;
     }
 
+    console.log(`\n[RoleSync] Checking ${member.displayName} (${member.id})`);
+
     const config = await getGuildConfig(member.guild.id);
     if (!config || !config.warmane_guild_name || !config.member_role_id) {
       return;
@@ -130,6 +132,7 @@ export async function syncMemberRoles(
     const memberRoleId = config.member_role_id;
 
     const data = roster ?? (await fetchGuildMembers(guildName, realm));
+    console.log('[RoleSync] Warmane roster response:', JSON.stringify(data));
     const members = data.members ?? data.roster ?? [];
 
     const { data: rows } = await supabase
@@ -137,8 +140,10 @@ export async function syncMemberRoles(
       .select('character_name')
       .eq('discord_id', member.id)
       .eq('guild_id', member.guild.id);
+    console.log('[RoleSync] Registered rows:', rows);
 
     if (!rows || rows.length === 0) {
+      console.log('[RoleSync] No registered characters found for user');
       if (member.roles.cache.has(memberRoleId)) {
         console.log(`Removing member role from ${member.displayName}`);
         await removeRoleWithRetry(member, memberRoleId);
@@ -147,18 +152,24 @@ export async function syncMemberRoles(
     }
 
     const characters = rows.map(r => r.character_name);
+    console.log('[RoleSync] Registered characters:', characters);
+    console.log('[RoleSync] Normalized registered:', characters.map(c => normalize(c)));
+
+    const normalizedRoster = members.map((m: any) => normalize(m.name));
+    console.log('[RoleSync] Normalized roster:', normalizedRoster);
 
     const inGuild = members.some((m: any) =>
       characters.some(c => normalize(m.name) === normalize(c))
     );
+    console.log('[RoleSync] In guild?', inGuild);
 
     if (inGuild) {
       if (!member.roles.cache.has(memberRoleId)) {
-        console.log(`Adding member role to ${member.displayName}`);
+        console.log(`[RoleSync] Adding member role to ${member.displayName}`);
         await addRoleWithRetry(member, memberRoleId);
       }
     } else if (member.roles.cache.has(memberRoleId)) {
-      console.log(`Removing member role from ${member.displayName}`);
+      console.log(`[RoleSync] Removing member role from ${member.displayName}`);
       await removeRoleWithRetry(member, memberRoleId);
     }
   } catch (err: any) {
@@ -189,6 +200,7 @@ export async function syncGuildRoles(
     const realm = config.warmane_realm;
 
     const roster = await fetchGuildMembers(guildName, realm);
+    console.log('[RoleSync] Full roster fetched:', JSON.stringify(roster));
     for (const [, member] of guild.members.cache) {
       await syncMemberRoles(member, roster);
     }
