@@ -2,7 +2,7 @@ import { Client, Events, ActivityType } from 'discord.js';
 import { startRoleSyncTimer } from '../utils/role-sync';
 import { getGuildConfig } from '../utils/guild-config';
 
-const SYNC_INTERVAL_MINUTES = 3;
+const SYNC_INTERVAL_MINUTES = 30; // Changed from 3 to prevent spam
 
 export default function registerReady(client: Client) {
   client.once(Events.ClientReady, async () => {

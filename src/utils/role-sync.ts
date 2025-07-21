@@ -9,6 +9,9 @@ import supabase from '../config/database';
 import { getGuildConfig } from './guild-config';
 import { isUserRegistered } from './database';
 
+// Flag to prevent concurrent syncs
+let isSyncing = false;
+
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 function normalize(name: string): string {
@@ -188,11 +191,20 @@ export async function syncGuildRoles(
   guildId: string
 ) {
   try {
+    if (isSyncing) {
+      console.log('Sync already in progress, skipping...');
+      return;
+    }
+    isSyncing = true;
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) return;
+    if (!guild) {
+      isSyncing = false;
+      return;
+    }
 
     const config = await getGuildConfig(guild.id);
     if (!config || !config.warmane_guild_name || !config.member_role_id) {
+      isSyncing = false;
       return;
     }
 
@@ -221,6 +233,8 @@ export async function syncGuildRoles(
     } else {
       console.error('Guild role sync error:', err);
     }
+  } finally {
+    isSyncing = false;
   }
 }
 
