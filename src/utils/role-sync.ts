@@ -7,6 +7,7 @@ import {
 import { fetchGuildMembers } from './warmane-api';
 import supabase from '../config/database';
 import { getGuildConfig } from './guild-config';
+import { isUserRegistered } from './database';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -68,6 +69,43 @@ async function removeRoleWithRetry(
     }
   }
   console.error(`Failed to remove role from ${member.displayName} after retries.`);
+}
+
+export async function syncUserRoles(member: GuildMember): Promise<void> {
+  const config = await getGuildConfig(member.guild.id);
+  if (!config || !config.member_role_id) {
+    // Guild is not configured, do nothing.
+    return;
+  }
+
+  const memberRoleId = config.member_role_id;
+  const higherRoles = [
+    config.officer_role_id,
+    config.class_leader_role_id,
+    config.raider_role_id,
+  ].filter(id => id) as string[];
+
+  const userIsRegistered = await isUserRegistered(member.id);
+  const userHasMemberRole = member.roles.cache.has(memberRoleId);
+  const userHasHigherRole = higherRoles.some(roleId => member.roles.cache.has(roleId));
+
+  const shouldHaveMemberRole = userIsRegistered && !userHasHigherRole;
+
+  if (shouldHaveMemberRole && !userHasMemberRole) {
+    try {
+      await member.roles.add(memberRoleId);
+      console.log(`Adding member role to ${member.user.username}`);
+    } catch (error) {
+      console.error(`Failed to add member role to ${member.user.username}`, error);
+    }
+  } else if (!shouldHaveMemberRole && userHasMemberRole) {
+    try {
+      await member.roles.remove(memberRoleId);
+      console.log(`Removing member role from ${member.user.username}`);
+    } catch (error) {
+      console.error(`Failed to remove member role from ${member.user.username}`, error);
+    }
+  }
 }
 
 export async function syncMemberRoles(
