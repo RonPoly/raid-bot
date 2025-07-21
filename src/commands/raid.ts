@@ -81,26 +81,10 @@ const command: Command = {
           ),
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()
-              .setCustomId('tank_slots')
-              .setLabel('Tank slots needed')
+              .setCustomId('slots')
+              .setLabel('Role Slots (tanks/healers/dps)')
               .setStyle(TextInputStyle.Short)
-              .setValue('2')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('healer_slots')
-              .setLabel('Healer slots needed')
-              .setStyle(TextInputStyle.Short)
-              .setValue('6')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('dps_slots')
-              .setLabel('DPS slots needed')
-              .setStyle(TextInputStyle.Short)
-              .setValue('17')
+              .setValue('2/6/17')
               .setRequired(true)
           )
         );
@@ -181,9 +165,11 @@ export async function handleRaidCreateModal(
   const title = interaction.fields.getTextInputValue('title');
   const instance = interaction.fields.getTextInputValue('instance');
   const date = interaction.fields.getTextInputValue('datetime');
-  const tankSlots = parseInt(interaction.fields.getTextInputValue('tank_slots'), 10) || 2;
-  const healerSlots = parseInt(interaction.fields.getTextInputValue('healer_slots'), 10) || 6;
-  const dpsSlots = parseInt(interaction.fields.getTextInputValue('dps_slots'), 10) || 17;
+  const slotsRaw = interaction.fields.getTextInputValue('slots');
+  const [tankStr, healerStr, dpsStr] = slotsRaw.split(/[\s,/]+/);
+  const tankSlots = parseInt(tankStr, 10) || 2;
+  const healerSlots = parseInt(healerStr, 10) || 6;
+  const dpsSlots = parseInt(dpsStr, 10) || 17;
 
   let raidLeaderId: string | null = null;
   const { data: player } = await supabase
