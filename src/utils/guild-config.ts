@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction } from 'discord.js';
+import { RepliableInteraction } from 'discord.js';
 import supabase from '../config/database';
 import { GuildConfig } from '../types';
 
@@ -32,7 +32,7 @@ export async function getGuildConfig(
 }
 
 export async function requireGuildConfig(
-  interaction: ChatInputCommandInteraction
+  interaction: RepliableInteraction
 ): Promise<GuildConfig | null> {
   const guildId = interaction.guildId ?? '';
   const config = await getGuildConfig(guildId);
