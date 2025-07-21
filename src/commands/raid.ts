@@ -218,7 +218,7 @@ export async function handleRaidCreateModal(
       .setStyle(ButtonStyle.Secondary)
   );
 
-  const embed = buildRaidEmbed(raid as Raid);
+  const embed = buildRaidEmbed(raid as Raid, [], config.warmane_realm);
   const channel = interaction.guild?.channels.cache.get(config.raid_channel_id) as TextChannel | undefined;
   if (!channel || channel.type !== ChannelType.GuildText) {
     await interaction.reply({ content: 'Raid channel not found.', ephemeral: true });
