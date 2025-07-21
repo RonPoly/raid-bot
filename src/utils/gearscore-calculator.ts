@@ -36,13 +36,13 @@ class GearScoreCalculator {
   }
 
   // The 'equippedItems' array comes from the Warmane API response
-  public calculate(equippedItems: { name: string; itemID: string }[]): number {
+  public calculate(equippedItems: { name: string; item: string; transmog?: string }[]): number {
     console.log('Calculating GearScore for equipment:', equippedItems);
     let totalScore = 0;
     if (!equippedItems) return 0;
 
     for (const equippedItem of equippedItems) {
-      const itemId = parseInt(equippedItem.itemID, 10);
+      const itemId = parseInt(equippedItem.item, 10);
       const itemData = this.items.get(itemId);
 
       if (!itemData) {
