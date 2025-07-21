@@ -94,6 +94,7 @@ const command: Command = {
       return;
     }
 
+    await interaction.deferReply({ ephemeral: true });
     const target = userOpt ?? interaction.user;
     try {
       const { menu, characters } = await buildCharacterSelectMenu(
@@ -110,12 +111,12 @@ const command: Command = {
         try {
           summary = await fetchCharacterSummary(name, config.warmane_realm);
           if (summary.error) {
-            await interaction.reply({ content: `Warmane API error: ${summary.error}`, ephemeral: true });
+            await interaction.editReply({ content: `Warmane API error: ${summary.error}` });
             return;
           }
         } catch (err: any) {
           if (err.status === 503) {
-            await interaction.reply({ content: 'Warmane API is currently under maintenance. Please try again later.', ephemeral: true });
+            await interaction.editReply({ content: 'Warmane API is currently under maintenance. Please try again later.' });
             return;
           }
           const { data } = await supabase
@@ -128,7 +129,7 @@ const command: Command = {
             cachedGs = data.gear_score;
             summary = { name, equipment: [], class: null } as any;
           } else {
-            await interaction.reply({ content: 'Failed to fetch character.', ephemeral: true });
+            await interaction.editReply({ content: 'Failed to fetch character.' });
             return;
           }
         }
@@ -146,14 +147,14 @@ const command: Command = {
           .setURL(armoryUrl)
           .setColor(gsColor(gs))
           .setDescription(`${gs} GS`);
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
         return;
       }
 
       const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-      await interaction.reply({ content: 'Choose a character:', components: [row], ephemeral: true });
+      await interaction.editReply({ content: 'Choose a character:', components: [row] });
     } catch {
-      await interaction.reply({ content: 'No registered characters found.', ephemeral: true });
+      await interaction.editReply({ content: 'No registered characters found.' });
     }
   }
 };
@@ -164,6 +165,7 @@ export async function handleGsSelectMenu(
   interaction: StringSelectMenuInteraction,
   supabase: SupabaseClient
 ) {
+  await interaction.deferUpdate();
   const character = interaction.values[0];
   const config = await getGuildConfig(interaction.guildId || '');
   if (!config) return;
@@ -173,12 +175,12 @@ export async function handleGsSelectMenu(
     try {
       summary = await fetchCharacterSummary(character, config.warmane_realm);
       if (summary.error) {
-        await interaction.update({ content: `Warmane API error: ${summary.error}`, components: [] });
+        await interaction.editReply({ content: `Warmane API error: ${summary.error}`, components: [] });
         return;
       }
     } catch (err: any) {
       if (err.status === 503) {
-        await interaction.update({ content: 'Warmane API is currently under maintenance. Please try again later.', components: [] });
+        await interaction.editReply({ content: 'Warmane API is currently under maintenance. Please try again later.', components: [] });
         return;
       }
       const { data } = await supabase
@@ -203,8 +205,8 @@ export async function handleGsSelectMenu(
       .eq('guild_id', interaction.guildId || '')
       .eq('character_name', summary.name);
     const armoryUrl = `https://armory.warmane.com/character/${encodeURIComponent(summary.name)}/${encodeURIComponent(config.warmane_realm)}`;
-    await interaction.update({ content: `[${summary.name}](${armoryUrl}) has ${gs} GS.`, components: [] });
+    await interaction.editReply({ content: `[${summary.name}](${armoryUrl}) has ${gs} GS.`, components: [] });
   } catch {
-    await interaction.update({ content: 'Failed to fetch character.', components: [] });
+    await interaction.editReply({ content: 'Failed to fetch character.', components: [] });
   }
 }
