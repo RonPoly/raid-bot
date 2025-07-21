@@ -1,10 +1,45 @@
+import { promises as fs } from 'fs';
+import path from 'path';
+
 const BASE_URL = 'https://armory.warmane.com/api';
+
+const CACHE_DIR = path.join(__dirname, '../../cache');
+const ROSTER_CACHE = path.join(CACHE_DIR, 'guild_roster.json');
+const SUMMARY_CACHE = path.join(CACHE_DIR, 'guild_summary.json');
+
+async function readCache(file: string, maxAgeMs: number) {
+  try {
+    const stat = await fs.stat(file);
+    if (Date.now() - stat.mtimeMs < maxAgeMs) {
+      const text = await fs.readFile(file, 'utf-8');
+      return JSON.parse(text);
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+async function writeCache(file: string, data: any) {
+  await fs.mkdir(CACHE_DIR, { recursive: true });
+  await fs.writeFile(file, JSON.stringify(data, null, 2), 'utf-8');
+}
 
 function encodeGuildName(name: string): string {
   return encodeURIComponent(name).replace(/%20/g, '+');
 }
 
 export async function fetchGuildMembers(name: string, realm: string) {
+  const cached = await readCache(ROSTER_CACHE, 60 * 60 * 1000);
+  if (cached && cached.name === name && cached.realm === realm) {
+    const members = cached.members ?? cached.roster ?? [];
+    const byName: Record<string, any> = {};
+    for (const m of members) {
+      byName[m.name] = m;
+    }
+    return { ...cached, byName };
+  }
+
   const url = `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/members`;
   console.log('[WarmaneAPI] Fetching guild members from', url);
   const res = await fetch(url);
@@ -18,7 +53,13 @@ export async function fetchGuildMembers(name: string, realm: string) {
   }
   const json = await res.json();
   console.log('[WarmaneAPI] Guild members response:', JSON.stringify(json));
-  return json;
+  await writeCache(ROSTER_CACHE, json);
+  const members = json.members ?? json.roster ?? [];
+  const byName: Record<string, any> = {};
+  for (const m of members) {
+    byName[m.name] = m;
+  }
+  return { ...json, byName };
 }
 
 export async function fetchCharacterSummary(name: string, realm: string) {
@@ -30,6 +71,11 @@ export async function fetchCharacterSummary(name: string, realm: string) {
 }
 
 export async function fetchGuildSummary(name: string, realm: string) {
+  const cached = await readCache(SUMMARY_CACHE, 60 * 60 * 1000);
+  if (cached && cached.name === name && cached.realm === realm) {
+    return cached;
+  }
+
   const res = await fetch(
     `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/summary`
   );
@@ -38,7 +84,9 @@ export async function fetchGuildSummary(name: string, realm: string) {
     err.status = res.status;
     throw err;
   }
-  return res.json();
+  const json = await res.json();
+  await writeCache(SUMMARY_CACHE, json);
+  return json;
 }
 
 export const CLASS_COLORS: Record<string, number> = {
