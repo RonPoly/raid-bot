@@ -21,16 +21,15 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         await command.execute(interaction, supabase);
       } catch (err) {
         logError(err);
+        const errorMessage = {
+          content: 'There was an error while executing this command!',
+          ephemeral: true,
+        };
         try {
           if (interaction.replied || interaction.deferred) {
-            await interaction.editReply({
-              content: 'There was an error while executing this command!'
-            });
+            await interaction.followUp(errorMessage);
           } else if (interaction.isRepliable()) {
-            await interaction.reply({
-              content: 'There was an error while executing this command!',
-              ephemeral: true,
-            });
+            await interaction.reply(errorMessage);
           }
         } catch (e) {
           logError(e);
