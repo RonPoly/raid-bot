@@ -15,7 +15,11 @@ import { Raid, RaidSignup } from '../types';
  * 📊 Average GS: 6000 | Min required: 5800
  * 👥 Total: 1/25
  */
-export function buildRaidEmbed(raid: Raid, signups: RaidSignup[] = []) {
+export function buildRaidEmbed(
+  raid: Raid,
+  signups: RaidSignup[] = [],
+  realm: string,
+) {
   const roleSection = (
     emoji: string,
     roleName: string,
@@ -24,7 +28,12 @@ export function buildRaidEmbed(raid: Raid, signups: RaidSignup[] = []) {
   ) => {
     const members = signups
       .filter((s) => s.role === role)
-      .map((s) => `• ${s.character_name}${s.gear_score ? ` - ${s.gear_score} GS` : ''}`);
+      .map((s) => {
+        const name = encodeURIComponent(s.character_name);
+        const realmEnc = encodeURIComponent(realm);
+        const link = `[${s.character_name}](https://armory.warmane.com/character/${name}/${realmEnc})`;
+        return `• ${link}${s.gear_score ? ` - ${s.gear_score} GS` : ''}`;
+      });
     const open = max - members.length;
     if (open > 0) {
       members.push(`• [${open} ${open === 1 ? 'slot' : 'slots'} open]`);
