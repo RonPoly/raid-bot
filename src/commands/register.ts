@@ -79,7 +79,7 @@ const command: Command = {
         }
 
         console.log('Warmane equipment data:', summary.equipment);
-        const gearScore = calculateGearScore(summary.equipment);
+        const gearScore = calculateGearScore(summary.equipment, summary.class);
         const { error } = await supabase.from('players').insert({
           guild_id: interaction.guildId,
           discord_id: interaction.user.id,
