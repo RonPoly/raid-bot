@@ -3,6 +3,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { requireGuildConfig } from '../utils/guild-config';
 import { fetchGuildMembers } from '../utils/warmane-api';
+import { handleApiError } from '../utils/api-error-handler';
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -27,7 +28,8 @@ const command: Command = {
 
       await interaction.reply({ embeds: [embed], ephemeral: true });
     } catch (err) {
-      await interaction.reply({ content: 'Failed to fetch roster.', ephemeral: true });
+      const msg = handleApiError(err as any);
+      await interaction.reply({ content: msg, ephemeral: true });
     }
   }
 };

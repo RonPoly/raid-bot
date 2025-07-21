@@ -3,33 +3,28 @@ import path from 'path';
 
 const BASE_URL = 'https://armory.warmane.com/api';
 
-// Simple token bucket rate limiter
-let tokens = 10;
-let lastCall = 0;
+// Simple request queue with dynamic delay
+let requestDelay = 200; // ms between API calls
+let lastRequest = 0;
 const queue: Array<() => void> = [];
 
 function processQueue() {
-  if (queue.length === 0 || tokens <= 0) return;
+  if (queue.length === 0) return;
   const now = Date.now();
-  if (now - lastCall < 100) {
-    setTimeout(processQueue, 100 - (now - lastCall));
+  const wait = Math.max(0, requestDelay - (now - lastRequest));
+  if (wait > 0) {
+    setTimeout(processQueue, wait);
     return;
   }
+  lastRequest = Date.now();
   const resolve = queue.shift()!;
-  tokens--;
-  lastCall = now;
   resolve();
   if (queue.length > 0) {
-    setTimeout(processQueue, 100);
+    setTimeout(processQueue, requestDelay);
   }
 }
 
-setInterval(() => {
-  tokens = Math.min(tokens + 1, 10);
-  processQueue();
-}, 6000);
-
-async function rateLimit() {
+async function scheduleRequest() {
   return new Promise<void>((resolve) => {
     queue.push(resolve);
     processQueue();
@@ -52,6 +47,15 @@ function summaryCachePath(name: string, realm: string): string {
 
 function characterCachePath(name: string, realm: string): string {
   return path.join(CACHE_DIR, `${slugify(name)}_${slugify(realm)}_character.json`);
+}
+
+export async function clearRosterCache(name: string, realm: string) {
+  const file = rosterCachePath(name, realm);
+  try {
+    await fs.unlink(file);
+  } catch {
+    // ignore
+  }
 }
 
 async function readCache(file: string, maxAgeMs: number) {
@@ -81,9 +85,9 @@ function encodeGuildName(name: string): string {
   return encodeURIComponent(name).replace(/%20/g, '+');
 }
 
-export async function fetchGuildMembers(name: string, realm: string) {
+export async function fetchGuildMembers(name: string, realm: string, force = false) {
   const cacheFile = rosterCachePath(name, realm);
-  const cached = await readCache(cacheFile, 60 * 60 * 1000);
+  const cached = force ? null : await readCache(cacheFile, 5 * 60 * 1000);
   if (cached && cached.name === name && cached.realm === realm) {
     const members = cached.members ?? cached.roster ?? [];
     const byName: Record<string, any> = {};
@@ -95,8 +99,17 @@ export async function fetchGuildMembers(name: string, realm: string) {
 
   const url = `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/members`;
   console.log('[WarmaneAPI] Fetching guild members from', url);
-  await rateLimit();
+  await scheduleRequest();
   const res = await fetch(url);
+  const remaining = parseInt(res.headers.get('x-ratelimit-remaining') || '10', 10);
+  if (!isNaN(remaining)) {
+    console.log('[WarmaneAPI] Rate limit remaining:', remaining);
+    if (remaining <= 2) {
+      requestDelay = Math.min(requestDelay + 200, 2000);
+    } else if (requestDelay > 200) {
+      requestDelay = 200;
+    }
+  }
   if (res.status === 503) {
     const err: any = new Error('Warmane API maintenance');
     err.status = 503;
@@ -119,12 +132,12 @@ export async function fetchGuildMembers(name: string, realm: string) {
 
 export async function fetchCharacterSummary(name: string, realm: string) {
   const cacheFile = characterCachePath(name, realm);
-  const cached = await readCache(cacheFile, 60 * 60 * 1000);
+  const cached = await readCache(cacheFile, 30 * 60 * 1000);
   if (cached && cached.name === name && cached.realm === realm) {
     return cached;
   }
 
-  await rateLimit();
+  await scheduleRequest();
   const res = await fetch(
     `${BASE_URL}/character/${encodeURIComponent(name)}/${encodeURIComponent(realm)}/summary`
   );
@@ -137,6 +150,15 @@ export async function fetchCharacterSummary(name: string, realm: string) {
     const err: any = new Error(`Warmane API error: ${res.status}`);
     err.status = res.status;
     throw err;
+  }
+  const remain = parseInt(res.headers.get('x-ratelimit-remaining') || '10', 10);
+  if (!isNaN(remain)) {
+    console.log('[WarmaneAPI] Rate limit remaining:', remain);
+    if (remain <= 2) {
+      requestDelay = Math.min(requestDelay + 200, 2000);
+    } else if (requestDelay > 200) {
+      requestDelay = 200;
+    }
   }
   const json = await res.json();
   const toCache = { ...json, name, realm };
@@ -151,7 +173,7 @@ export async function fetchGuildSummary(name: string, realm: string) {
     return cached;
   }
 
-  await rateLimit();
+  await scheduleRequest();
   const res = await fetch(
     `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/summary`
   );
@@ -164,6 +186,15 @@ export async function fetchGuildSummary(name: string, realm: string) {
     const err: any = new Error(`Warmane API error: ${res.status}`);
     err.status = res.status;
     throw err;
+  }
+  const remain = parseInt(res.headers.get('x-ratelimit-remaining') || '10', 10);
+  if (!isNaN(remain)) {
+    console.log('[WarmaneAPI] Rate limit remaining:', remain);
+    if (remain <= 2) {
+      requestDelay = Math.min(requestDelay + 200, 2000);
+    } else if (requestDelay > 200) {
+      requestDelay = 200;
+    }
   }
   const json = await res.json();
   const toCache = { ...json, name, realm };
