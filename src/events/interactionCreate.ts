@@ -1,4 +1,4 @@
-import { Client, Events } from 'discord.js';
+import { Client, Events, MessageFlags, InteractionReplyOptions } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { handleRaidCreateModal, handleRaidInstanceSelect } from '../commands/raid';
@@ -21,9 +21,9 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         await command.execute(interaction, supabase);
       } catch (err) {
         logError(err);
-        const errorMessage = {
+        const errorMessage: InteractionReplyOptions = {
           content: 'There was an error while executing this command!',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         };
         try {
           if (interaction.replied || interaction.deferred) {

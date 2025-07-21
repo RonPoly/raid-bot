@@ -4,6 +4,7 @@ import {
   StringSelectMenuBuilder,
   ActionRowBuilder,
   StringSelectMenuInteraction,
+  MessageFlags,
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Raid, RaidSignup } from '../types';
@@ -19,7 +20,7 @@ export async function handleRaidSignupButton(
 ) {
   const [, raidId] = interaction.customId.split(':');
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const { menu } = await buildCharacterSelectMenu(
@@ -186,7 +187,7 @@ export async function handleRaidLeaveButton(
 ) {
   const [, raidId] = interaction.customId.split(':');
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const { data: raid } = await supabase.from('raids').select('*').eq('id', raidId).maybeSingle();
   if (!raid) {

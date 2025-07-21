@@ -1,4 +1,4 @@
-import { RepliableInteraction } from 'discord.js';
+import { RepliableInteraction, MessageFlags } from 'discord.js';
 import supabase from '../config/database';
 import { GuildConfig } from '../types';
 
@@ -39,7 +39,7 @@ export async function requireGuildConfig(
   if (!config) {
     await interaction.reply({
       content: 'This server needs to be configured. An admin should run /setup',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return null;
   }

@@ -5,7 +5,8 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuInteraction,
-  User
+  User,
+  MessageFlags
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
@@ -94,7 +95,7 @@ const command: Command = {
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const target = userOpt ?? interaction.user;
     try {
       const { menu, characters } = await buildCharacterSelectMenu(

@@ -28,7 +28,7 @@ const command: Command = {
 
   async execute(interaction: ChatInputCommandInteraction, _supabase: SupabaseClient) {
     if (!interaction.guildId) {
-      await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+      await interaction.reply({ content: 'This command can only be used in a server.', flags: MessageFlags.Ephemeral });
       return;
     }
 

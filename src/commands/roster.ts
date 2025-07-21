@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, MessageFlags } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { requireGuildConfig } from '../utils/guild-config';
@@ -26,10 +26,10 @@ const command: Command = {
           { name: `Offline (${offline.length})`, value: offline.slice(0, 20).join(', ') || 'None' }
         );
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     } catch (err) {
       const msg = handleApiError(err as any);
-      await interaction.reply({ content: msg, ephemeral: true });
+      await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
     }
   }
 };
