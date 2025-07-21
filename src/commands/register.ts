@@ -6,6 +6,7 @@ import {
   TextInputStyle,
   ActionRowBuilder,
   ModalSubmitInteraction,
+  MessageFlags,
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
@@ -56,13 +57,13 @@ export async function handleRegisterModal(
   interaction: ModalSubmitInteraction,
   supabase: SupabaseClient
 ) {
-  await interaction.deferReply({ ephemeral: true });
-
   const config = await requireGuildConfig(interaction);
   if (!config) {
     await interaction.editReply({ content: 'This server needs to be configured. An admin should run /setup' });
     return;
   }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const name = interaction.fields.getTextInputValue('character_name').trim();
   const realm = config.warmane_realm;
