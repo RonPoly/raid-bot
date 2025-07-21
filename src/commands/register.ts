@@ -11,6 +11,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { fetchCharacterSummary } from '../utils/warmane-api';
 import { calculateGearScore } from '../gearscore-calculator';
+import { requireGuildConfig } from '../utils/guild-config';
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -23,6 +24,9 @@ const command: Command = {
       return;
     }
 
+    const config = await requireGuildConfig(interaction);
+    if (!config) return;
+
     const modal = new ModalBuilder()
       .setCustomId('register_modal')
       .setTitle('Register Character')
@@ -33,14 +37,7 @@ const command: Command = {
             .setLabel('Character Name')
             .setStyle(TextInputStyle.Short)
             .setRequired(true),
-        ),
-        new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder()
-            .setCustomId('realm')
-            .setLabel('Realm')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true),
-        ),
+        )
       );
 
     await interaction.showModal(modal);
@@ -54,7 +51,7 @@ const command: Command = {
       await submit.deferReply({ ephemeral: true });
 
       const name = submit.fields.getTextInputValue('character_name').trim();
-      const realm = submit.fields.getTextInputValue('realm').trim();
+      const realm = config.warmane_realm;
 
       try {
         const summary = await fetchCharacterSummary(name, realm);
@@ -79,7 +76,7 @@ const command: Command = {
 
         const armoryUrl = `https://armory.warmane.com/character/${encodeURIComponent(name)}/${encodeURIComponent(realm)}`;
         await submit.editReply({
-          content: `Registered **[${summary.name}](${armoryUrl})** on ${summary.realm}! GearScore: **${gearScore}**`,
+          content: `Registered **[${summary.name}](${armoryUrl})** on ${realm}! GearScore: **${gearScore}**`,
         });
       } catch (err) {
         console.error('Register character error:', err);
