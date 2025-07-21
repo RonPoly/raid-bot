@@ -1,7 +1,7 @@
 import { Client, Events } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
-import { handleRaidCreateModal } from '../commands/raid';
+import { handleRaidCreateModal, handleRaidInstanceSelect } from '../commands/raid';
 import {
   handleRaidSignupButton,
   handleRaidLeaveButton,
@@ -25,7 +25,7 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         }
       }
     } else if (interaction.isModalSubmit()) {
-      if (interaction.customId === 'raid-create-modal') {
+      if (interaction.customId.startsWith('raid-create-modal')) {
         await handleRaidCreateModal(interaction, supabase);
       }
     } else if (interaction.isButton()) {
@@ -39,6 +39,8 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         await handleRaidRoleSelect(interaction, supabase);
       } else if (interaction.customId.startsWith('raid-char-select:')) {
         await handleRaidCharacterSelect(interaction, supabase);
+      } else if (interaction.customId === 'raid-instance-select') {
+        await handleRaidInstanceSelect(interaction, supabase);
       } else if (interaction.customId.startsWith('gs-set-select:')) {
         await handleGsSetSelectMenu(interaction, supabase);
       }
