@@ -28,7 +28,7 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         try {
           if (interaction.replied || interaction.deferred) {
             await interaction.followUp(errorMessage);
-          } else if (interaction.isRepliable()) {
+          } else {
             await interaction.reply(errorMessage);
           }
         } catch (e) {
