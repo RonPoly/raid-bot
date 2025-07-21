@@ -151,11 +151,13 @@ const command: Command = {
     const config = await requireGuildConfig(interaction);
     if (!config) return;
 
+    await interaction.deferReply({ ephemeral: true });
+
     if (sub === 'create') {
       const member = interaction.member as GuildMember;
       const officerRoleId = config.officer_role_id || '';
       if (!officerRoleId || !member?.roles?.cache?.has(officerRoleId)) {
-        await interaction.reply({ content: 'Missing permission.', ephemeral: true });
+        await interaction.editReply({ content: 'Missing permission.' });
         return;
       }
 
@@ -181,7 +183,7 @@ const command: Command = {
         }
       }
       const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-      await interaction.reply({ content: 'Choose raid instance:', components: [row], ephemeral: true });
+      await interaction.editReply({ content: 'Choose raid instance:', components: [row] });
     } else if (sub === 'list') {
       const now = new Date().toISOString();
       const { data: raids } = await supabase
@@ -191,7 +193,7 @@ const command: Command = {
         .order('scheduled_date', { ascending: true });
 
       if (!raids || raids.length === 0) {
-        await interaction.reply({ content: 'No raids scheduled.', ephemeral: true });
+        await interaction.editReply({ content: 'No raids scheduled.' });
         return;
       }
 
@@ -208,12 +210,12 @@ const command: Command = {
           value: `Date: ${raid.scheduled_date}\nSignups: ${count}/${total}\nID: ${raid.id}`,
         });
       }
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.editReply({ embeds: [embed] });
     } else if (sub === 'cancel') {
       const member = interaction.member as GuildMember;
       const officerRoleId = config?.officer_role_id || '';
       if (!officerRoleId || !member?.roles?.cache?.has(officerRoleId)) {
-        await interaction.reply({ content: 'Missing permission.', ephemeral: true });
+        await interaction.editReply({ content: 'Missing permission.' });
         return;
       }
 
@@ -226,7 +228,7 @@ const command: Command = {
         .maybeSingle();
 
       if (!raid) {
-        await interaction.reply({ content: 'Raid not found.', ephemeral: true });
+        await interaction.editReply({ content: 'Raid not found.' });
         return;
       }
 
@@ -240,7 +242,7 @@ const command: Command = {
         } catch {}
       }
 
-      await interaction.reply({ content: 'Raid cancelled.', ephemeral: true });
+      await interaction.editReply({ content: 'Raid cancelled.' });
     }
   }
 };
@@ -313,10 +315,12 @@ export async function handleRaidCreateModal(
     return;
   }
 
+  await interaction.deferReply({ ephemeral: true });
+
   const [, raidValue] = interaction.customId.split(':');
   const option = RAID_OPTIONS.find((o) => o.value === raidValue);
   if (!option) {
-    await interaction.reply({ content: 'Invalid raid type.', ephemeral: true });
+    await interaction.editReply({ content: 'Invalid raid type.' });
     return;
   }
 
@@ -365,14 +369,14 @@ export async function handleRaidCreateModal(
   const embed = buildRaidEmbed(raid as Raid, [], config.warmane_realm, []);
   const channel = interaction.guild?.channels.cache.get(config.raid_channel_id) as TextChannel | undefined;
   if (!channel || channel.type !== ChannelType.GuildText) {
-    await interaction.reply({ content: 'Raid channel not found.', ephemeral: true });
+    await interaction.editReply({ content: 'Raid channel not found.' });
     return;
   }
   const msg = await channel.send({ embeds: [embed], components: [buttons] });
 
   await supabase.from('raids').update({ signup_message_id: msg.id }).eq('id', raid.id);
 
-  await interaction.reply({ content: 'Raid created.', ephemeral: true });
+  await interaction.editReply({ content: 'Raid created.' });
 }
 
 

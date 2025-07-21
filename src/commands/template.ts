@@ -23,11 +23,13 @@ const command: Command = {
     const config = await requireGuildConfig(interaction);
     if (!config) return;
 
+    await interaction.deferReply({ ephemeral: true });
+
     const sub = interaction.options.getSubcommand();
     const member = interaction.member as GuildMember;
     const officerRoleId = config.officer_role_id || '';
     if (!officerRoleId || !member.roles.cache.has(officerRoleId)) {
-      await interaction.reply({ content: 'Missing permission.', ephemeral: true });
+      await interaction.editReply({ content: 'Missing permission.' });
       return;
     }
 
@@ -48,18 +50,18 @@ const command: Command = {
         dps_slots: dps,
         min_gearscore: minGs
       }, { onConflict: 'guild_id,name' });
-      await interaction.reply({ content: 'Template saved.', ephemeral: true });
+      await interaction.editReply({ content: 'Template saved.' });
     } else {
       const { data } = await supabase
         .from('raid_templates')
         .select('*')
         .eq('guild_id', interaction.guildId!);
       if (!data || data.length === 0) {
-        await interaction.reply({ content: 'No templates saved.', ephemeral: true });
+        await interaction.editReply({ content: 'No templates saved.' });
         return;
       }
       const list = data.map(t => `**${t.name}** - ${t.instance}`).join('\n');
-      await interaction.reply({ content: list, ephemeral: true });
+      await interaction.editReply({ content: list });
     }
   }
 };

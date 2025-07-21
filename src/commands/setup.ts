@@ -69,6 +69,8 @@ const command: Command = {
 
     const sub = interaction.options.getSubcommand();
 
+    await interaction.deferReply({ ephemeral: true });
+
     if (sub === 'status') {
       const guildId = interaction.guild.id;
       const { data: config } = await supabase
@@ -78,9 +80,8 @@ const command: Command = {
         .maybeSingle();
 
       if (!config || !config.setup_complete) {
-        await interaction.reply({
-          content: 'Not configured. Run /setup to configure.',
-          ephemeral: true
+        await interaction.editReply({
+          content: 'Not configured. Run /setup to configure.'
         });
         return;
       }
@@ -95,7 +96,7 @@ const command: Command = {
           { name: 'Raid Channel ID', value: config.raid_channel_id ?? 'None', inline: true }
         );
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.editReply({ embeds: [embed] });
       return;
     }
 
@@ -108,11 +109,11 @@ const command: Command = {
       .maybeSingle();
 
     if (existing && existing.setup_complete) {
-      await interaction.reply({ content: 'Setup already completed for this server.', ephemeral: true });
+      await interaction.editReply({ content: 'Setup already completed for this server.' });
       return;
     }
 
-    await interaction.reply({ content: 'Check your DMs to continue setup.', ephemeral: true });
+    await interaction.editReply({ content: 'Check your DMs to continue setup.' });
     const dm = await interaction.user.createDM();
 
     try {

@@ -19,6 +19,8 @@ export async function handleRaidSignupButton(
 ) {
   const [, raidId] = interaction.customId.split(':');
 
+  await interaction.deferReply({ ephemeral: true });
+
   try {
     const { menu } = await buildCharacterSelectMenu(
       supabase,
@@ -27,9 +29,9 @@ export async function handleRaidSignupButton(
       CHAR_SELECT_ID(raidId)
     );
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-    await interaction.reply({ content: 'Choose your character:', components: [row], ephemeral: true });
+    await interaction.editReply({ content: 'Choose your character:', components: [row] });
   } catch {
-    await interaction.reply({ content: 'Register a character first.', ephemeral: true });
+    await interaction.editReply({ content: 'Register a character first.' });
   }
 }
 
@@ -40,9 +42,11 @@ export async function handleRaidRoleSelect(
   const [, raidId] = interaction.customId.split(':');
   const role = interaction.values[0] as 'tank' | 'healer' | 'dps';
 
+  await interaction.deferUpdate();
+
   const { data: raid } = await supabase.from('raids').select('*').eq('id', raidId).maybeSingle();
   if (!raid) {
-    await interaction.update({ content: 'Raid not found.', components: [] });
+    await interaction.editReply({ content: 'Raid not found.', components: [] });
     return;
   }
   try {
@@ -59,9 +63,9 @@ export async function handleRaidRoleSelect(
     }
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-    await interaction.update({ content: 'Select character:', components: [row] });
+    await interaction.editReply({ content: 'Select character:', components: [row] });
   } catch {
-    await interaction.update({ content: 'Register a character first.', components: [] });
+    await interaction.editReply({ content: 'Register a character first.', components: [] });
   }
 }
 
@@ -101,7 +105,7 @@ async function signupCharacter(
   };
 
   if (charClass && !roleAllowed[role].includes(charClass)) {
-    await interaction.update({
+    await interaction.editReply({
       content: `${character} cannot sign as ${role}.`,
       components: []
     });
@@ -155,7 +159,7 @@ async function signupCharacter(
     } catch {}
   }
 
-  await interaction.update({ content: `Signed up as ${character} (${role})!`, components: [] });
+  await interaction.editReply({ content: `Signed up as ${character} (${role})!`, components: [] });
 }
 
 export async function handleRaidCharacterSelect(
@@ -165,9 +169,11 @@ export async function handleRaidCharacterSelect(
   const [, raidId] = interaction.customId.split(':');
   const character = interaction.values[0];
 
+  await interaction.deferUpdate();
+
   const { data: raid } = await supabase.from('raids').select('*').eq('id', raidId).maybeSingle();
   if (!raid) {
-    await interaction.update({ content: 'Raid not found.', components: [] });
+    await interaction.editReply({ content: 'Raid not found.', components: [] });
     return;
   }
 
@@ -180,9 +186,11 @@ export async function handleRaidLeaveButton(
 ) {
   const [, raidId] = interaction.customId.split(':');
 
+  await interaction.deferReply({ ephemeral: true });
+
   const { data: raid } = await supabase.from('raids').select('*').eq('id', raidId).maybeSingle();
   if (!raid) {
-    await interaction.reply({ content: 'Raid not found.', ephemeral: true });
+    await interaction.editReply({ content: 'Raid not found.' });
     return;
   }
 
@@ -194,7 +202,7 @@ export async function handleRaidLeaveButton(
 
   const characters = rows?.map(r => r.character_name) ?? [];
   if (characters.length === 0) {
-    await interaction.reply({ content: 'Register a character first.', ephemeral: true });
+    await interaction.editReply({ content: 'Register a character first.' });
     return;
   }
 
@@ -237,5 +245,5 @@ export async function handleRaidLeaveButton(
     } catch {}
   }
 
-  await interaction.reply({ content: 'You have left the raid.', ephemeral: true });
+  await interaction.editReply({ content: 'You have left the raid.' });
 }

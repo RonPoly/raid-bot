@@ -12,12 +12,13 @@ const command: Command = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
     const sub = interaction.options.getSubcommand();
+    await interaction.deferReply({ ephemeral: true });
     if (sub === 'pingdb') {
       const { error } = await supabase.rpc('version');
       if (error) {
-        await interaction.reply({ content: `Database error: ${error.message}`, ephemeral: true });
+        await interaction.editReply({ content: `Database error: ${error.message}` });
       } else {
-        await interaction.reply({ content: 'Database connection OK.', ephemeral: true });
+        await interaction.editReply({ content: 'Database connection OK.' });
       }
     }
   }
