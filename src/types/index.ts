@@ -10,19 +10,24 @@ export interface Command {
 
 export interface Player {
   id: string;
+  guild_id: string;
   discord_id: string;
-  main_character: string;
+  character_name: string;
   realm: string;
+  gear_score?: number | null;
+  last_updated?: string | null;
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface Character {
+  id: string;
+  guild_id: string;
+  discord_id: string;
   character_name: string;
-  player_id?: string;
-  gear_score?: number;
-  item_level?: number;
-  last_updated?: string;
+  realm: string;
+  gear_score?: number | null;
+  last_updated?: string | null;
+  created_at?: string;
 }
 
 export interface Raid {

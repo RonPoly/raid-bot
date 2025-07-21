@@ -132,13 +132,13 @@ export async function syncMemberRoles(
     const data = roster ?? (await fetchGuildMembers(guildName, realm));
     const members = data.members ?? data.roster ?? [];
 
-    const { data: player } = await supabase
-      .from('Players')
-      .select('id, main_character')
+    const { data: rows } = await supabase
+      .from('players')
+      .select('character_name')
       .eq('discord_id', member.id)
-      .maybeSingle();
+      .eq('guild_id', member.guild.id);
 
-    if (!player) {
+    if (!rows || rows.length === 0) {
       if (member.roles.cache.has(memberRoleId)) {
         console.log(`Removing member role from ${member.displayName}`);
         await removeRoleWithRetry(member, memberRoleId);
@@ -146,15 +146,7 @@ export async function syncMemberRoles(
       return;
     }
 
-    const { data: alts } = await supabase
-      .from('Alts')
-      .select('character_name')
-      .eq('player_id', player.id);
-
-    const characters = [
-      player.main_character,
-      ...((alts?.map(a => a.character_name)) ?? [])
-    ];
+    const characters = rows.map(r => r.character_name);
 
     const inGuild = members.some((m: any) =>
       characters.some(c => normalize(m.name) === normalize(c))

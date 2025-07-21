@@ -33,7 +33,8 @@ async function viewCharacters(interaction: ChatInputCommandInteraction) {
   const { data: characters, error } = await supabase
     .from('players')
     .select('character_name, realm')
-    .eq('discord_id', discordId);
+    .eq('discord_id', discordId)
+    .eq('guild_id', interaction.guildId ?? '');
 
   if (error) {
     await interaction.editReply({ content: 'There was an error fetching your characters.' });
@@ -53,7 +54,8 @@ async function deleteCharacter(interaction: ChatInputCommandInteraction) {
   const { data: characters, error } = await supabase
     .from('players')
     .select('id, character_name, realm')
-    .eq('discord_id', discordId);
+    .eq('discord_id', discordId)
+    .eq('guild_id', interaction.guildId ?? '');
 
   if (error || !characters || characters.length === 0) {
     await interaction.editReply({ content: 'You have no characters to delete.' });

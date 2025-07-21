@@ -20,49 +20,18 @@ export async function handleRaidSignupButton(
 ) {
   const [, raidId] = interaction.customId.split(':');
 
-  const { data: player } = await supabase
-    .from('Players')
-    .select('id, main_character')
-    .eq('discord_id', interaction.user.id)
-    .maybeSingle();
-  if (!player) {
-    await interaction.reply({ content: 'Register a main character first.', ephemeral: true });
-    return;
-  }
-
-  const { data: alts } = await supabase
-    .from('Alts')
-    .select('character_name')
-    .eq('player_id', player.id);
-
-  const characters = [player.main_character, ...(alts?.map(a => a.character_name) ?? [])];
-  if (characters.length === 0) {
-    await interaction.reply({ content: 'Register a character first.', ephemeral: true });
-    return;
-  }
-
-  const { data: gsRows } = await supabase
-    .from('GearScores')
-    .select('character_name, gear_score')
-    .in('character_name', characters);
-  const gsMap = new Map<string, number>();
-  gsRows?.forEach(row => {
-    if (row.gear_score) gsMap.set(row.character_name, row.gear_score);
-  });
-
-  const select = new StringSelectMenuBuilder()
-    .setCustomId(CHAR_SELECT_ID(raidId))
-    .setPlaceholder('Select character')
-    .addOptions(
-      characters.map(name => ({
-        label: name,
-        value: name,
-        description: gsMap.has(name) ? `${gsMap.get(name)} GS` : 'No GS set',
-      }))
+  try {
+    const { menu } = await buildCharacterSelectMenu(
+      supabase,
+      interaction.user.id,
+      interaction.guildId ?? '',
+      CHAR_SELECT_ID(raidId)
     );
-
-  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-  await interaction.reply({ content: 'Choose your character:', components: [row], ephemeral: true });
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+    await interaction.reply({ content: 'Choose your character:', components: [row], ephemeral: true });
+  } catch {
+    await interaction.reply({ content: 'Register a character first.', ephemeral: true });
+  }
 }
 
 export async function handleRaidRoleSelect(
@@ -72,7 +41,7 @@ export async function handleRaidRoleSelect(
   const [, raidId] = interaction.customId.split(':');
   const role = interaction.values[0] as 'tank' | 'healer' | 'dps';
 
-  const { data: raid } = await supabase.from('Raids').select('*').eq('id', raidId).maybeSingle();
+  const { data: raid } = await supabase.from('raids').select('*').eq('id', raidId).maybeSingle();
   if (!raid) {
     await interaction.update({ content: 'Raid not found.', components: [] });
     return;
@@ -81,6 +50,7 @@ export async function handleRaidRoleSelect(
     const { menu, characters } = await buildCharacterSelectMenu(
       supabase,
       interaction.user.id,
+      interaction.guildId ?? '',
       CHAR_SELECT_ID(raidId)
     );
 
@@ -105,18 +75,20 @@ async function signupCharacter(
   role: 'tank' | 'healer' | 'dps',
 ) {
   const { data: gs } = await supabase
-    .from('GearScores')
+    .from('players')
     .select('gear_score')
+    .eq('guild_id', interaction.guildId ?? '')
+    .eq('discord_id', interaction.user.id)
     .eq('character_name', character)
     .maybeSingle();
 
   await supabase
-    .from('RaidSignups')
+    .from('raid_signups')
     .delete()
     .eq('raid_id', raidId)
     .eq('character_name', character);
 
-  await supabase.from('RaidSignups').insert({
+  await supabase.from('raid_signups').insert({
     raid_id: raidId,
     character_name: character,
     role,
@@ -124,7 +96,7 @@ async function signupCharacter(
   });
 
   const { data: signups } = await supabase
-    .from('RaidSignups')
+    .from('raid_signups')
     .select('*')
     .eq('raid_id', raidId);
 
@@ -150,7 +122,7 @@ export async function handleRaidCharacterSelect(
   const [, raidId] = interaction.customId.split(':');
   const character = interaction.values[0];
 
-  const { data: raid } = await supabase.from('Raids').select('*').eq('id', raidId).maybeSingle();
+  const { data: raid } = await supabase.from('raids').select('*').eq('id', raidId).maybeSingle();
   if (!raid) {
     await interaction.update({ content: 'Raid not found.', components: [] });
     return;
@@ -165,40 +137,32 @@ export async function handleRaidLeaveButton(
 ) {
   const [, raidId] = interaction.customId.split(':');
 
-  const { data: raid } = await supabase.from('Raids').select('*').eq('id', raidId).maybeSingle();
+  const { data: raid } = await supabase.from('raids').select('*').eq('id', raidId).maybeSingle();
   if (!raid) {
     await interaction.reply({ content: 'Raid not found.', ephemeral: true });
     return;
   }
 
-  const { data: player } = await supabase
-    .from('Players')
-    .select('id, main_character')
+  const { data: rows } = await supabase
+    .from('players')
+    .select('character_name')
     .eq('discord_id', interaction.user.id)
-    .maybeSingle();
-  if (!player) {
-    await interaction.reply({ content: 'Register a main character first.', ephemeral: true });
+    .eq('guild_id', interaction.guildId ?? '');
+
+  const characters = rows?.map(r => r.character_name) ?? [];
+  if (characters.length === 0) {
+    await interaction.reply({ content: 'Register a character first.', ephemeral: true });
     return;
   }
 
-  const { data: alts } = await supabase
-    .from('Alts')
-    .select('character_name')
-    .eq('player_id', player.id);
-
-  const characters = [
-    player.main_character,
-    ...((alts?.map(a => a.character_name)) ?? [])
-  ];
-
   await supabase
-    .from('RaidSignups')
+    .from('raid_signups')
     .delete()
     .eq('raid_id', raidId)
     .in('character_name', characters);
 
   const { data: signups } = await supabase
-    .from('RaidSignups')
+    .from('raid_signups')
     .select('*')
     .eq('raid_id', raidId);
 

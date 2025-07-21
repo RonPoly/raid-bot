@@ -108,7 +108,7 @@ const command: Command = {
     } else if (sub === 'list') {
       const now = new Date().toISOString();
       const { data: raids } = await supabase
-        .from('Raids')
+        .from('raids')
         .select('*')
         .gt('scheduled_date', now)
         .order('scheduled_date', { ascending: true });
@@ -121,7 +121,7 @@ const command: Command = {
       const embed = new EmbedBuilder().setTitle('Upcoming Raids');
       for (const raid of raids as Raid[]) {
         const { data: signups } = await supabase
-          .from('RaidSignups')
+          .from('raid_signups')
           .select('id')
           .eq('raid_id', raid.id);
         const count = signups?.length ?? 0;
@@ -142,7 +142,7 @@ const command: Command = {
 
       const id = interaction.options.getString('id', true);
       const { data: raid } = await supabase
-        .from('Raids')
+        .from('raids')
         .delete()
         .eq('id', id)
         .select('signup_message_id')
@@ -187,14 +187,14 @@ export async function handleRaidCreateModal(
 
   let raidLeaderId: string | null = null;
   const { data: player } = await supabase
-    .from('Players')
+    .from('players')
     .select('id')
     .eq('discord_id', interaction.user.id)
     .maybeSingle();
   if (player) raidLeaderId = player.id;
 
   const { data: raid } = await supabase
-    .from('Raids')
+    .from('raids')
     .insert({
       title,
       instance,
@@ -226,7 +226,7 @@ export async function handleRaidCreateModal(
   }
   const msg = await channel.send({ embeds: [embed], components: [buttons] });
 
-  await supabase.from('Raids').update({ signup_message_id: msg.id }).eq('id', raid.id);
+  await supabase.from('raids').update({ signup_message_id: msg.id }).eq('id', raid.id);
 
   await interaction.reply({ content: 'Raid created.', ephemeral: true });
 }
