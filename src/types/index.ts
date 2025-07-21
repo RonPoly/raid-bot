@@ -56,6 +56,8 @@ export interface GuildConfig {
   warmane_realm: string;
   member_role_id?: string | null;
   officer_role_id?: string | null;
+  class_leader_role_id?: string | null;
+  raider_role_id?: string | null;
   raid_channel_id?: string | null;
   setup_complete?: boolean;
   setup_by_user_id?: string | null;

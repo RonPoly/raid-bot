@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Player, Character, Raid, RaidSignup } from '../types';
+import supabase from '../config/database';
 
 export async function registerMain(
   supabase: SupabaseClient,
@@ -109,4 +110,13 @@ export async function listRaidSignups(
     .eq('raid_id', raidId);
   if (error) throw error;
   return data as RaidSignup[];
+}
+
+export async function isUserRegistered(discordId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('Players')
+    .select('id')
+    .eq('discord_id', discordId)
+    .maybeSingle();
+  return !!data;
 }
