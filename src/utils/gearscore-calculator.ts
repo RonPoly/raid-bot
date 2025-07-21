@@ -144,7 +144,7 @@ class GearScoreCalculator {
 
   // Calculate total GearScore for the provided equipment list
   public calculate(
-    equippedItems: { name: string; item: string; transmog?: string; enchant?: boolean }[],
+    equippedItems: { name: string; item: string; transmog?: string }[],
     playerClass?: string
   ): number {
     let totalScore = 0;
@@ -195,13 +195,22 @@ class GearScoreCalculator {
         }
       }
 
+      // --- REVISED ENCHANT PENALTY LOGIC ---
+      // Apply a penalty ONLY if the item is a Head or Shoulder piece,
+      // as we assume these are the most likely to be unenchanted.
+      // For all other slots, we assume they are enchanted (enchantMod = 1.0).
       let enchantMod = 1.0;
-      if (ENCHANTABLE_SLOTS.has(invType) && equippedItem.enchant === false) {
-        enchantMod = 0.98;
+      if (invType === 'INVTYPE_HEAD' || invType === 'INVTYPE_SHOULDER') {
+          // Since the API doesn't tell us if an enchant is present, we apply
+          // the penalty by default to just these two slots.
+          // This is a more balanced assumption than penalizing all gear.
+          enchantMod = 0.98; // The original penalty value from GearScoreLite.lua
       }
+      // --- END OF REVISED LOGIC ---
 
       const qualityScale = getQualityScale(rarity);
 
+      // Final calculation now includes the more targeted enchantMod.
       let itemScore = Math.floor(
         ((itemLevel - qualityTable.A) / qualityTable.B) * slotMod * SCALE * qualityScale * enchantMod
       );
