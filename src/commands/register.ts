@@ -1,86 +1,208 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
-import { supabase } from '../supabaseClient';
-import { calculateGearScore } from '../gearscore-calculator';
-import fetch from 'node-fetch';
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  MessageFlags,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ComponentType,
+} from 'discord.js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
+import { calculateGearScore } from '../gearscore-calculator';
+import { fetchCharacterSummary } from '../utils/warmane-api';
 
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('register')
-    .setDescription('Registers a new character to your Discord account.')
-    .addStringOption(option =>
-      option.setName('character')
-        .setDescription('Your character name')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('realm')
-        .setDescription('Your realm')
-        .setRequired(true)
-        .addChoices(
-          { name: 'Lordaeron', value: 'Lordaeron' },
-          { name: 'Icecrown', value: 'Icecrown' },
-          { name: 'Onyxia', value: 'Onyxia' }
-        )),
+    .setDescription('Register a character'),
 
-  async execute(interaction: ChatInputCommandInteraction) {
-    await interaction.deferReply({ ephemeral: true });
+  async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const characterName = interaction.options.getString('character', true);
-    const realm = interaction.options.getString('realm', true);
-    const discordId = interaction.user.id;
+    const { data: player } = await supabase
+      .from('Players')
+      .select('id')
+      .eq('discord_id', interaction.user.id)
+      .maybeSingle();
+
+    if (!player) {
+      const button = new ButtonBuilder()
+        .setCustomId('register_main')
+        .setLabel('Register Main Character')
+        .setStyle(ButtonStyle.Primary);
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+
+      const msg = await interaction.editReply({
+        content: "Welcome! Let's get your main character registered.",
+        components: [row],
+      });
+
+      try {
+        const click = await msg.awaitMessageComponent({
+          componentType: ComponentType.Button,
+          filter: (i) => i.customId === 'register_main' && i.user.id === interaction.user.id,
+          time: 60_000,
+        });
+
+        const modal = new ModalBuilder()
+          .setCustomId('register_modal')
+          .setTitle('Register Character')
+          .addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(
+              new TextInputBuilder()
+                .setCustomId('character_name')
+                .setLabel('Character Name')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(
+              new TextInputBuilder()
+                .setCustomId('realm')
+                .setLabel('Realm')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+            )
+          );
+
+        await click.showModal(modal);
+        const modalSubmit = await click.awaitModalSubmit({
+          filter: (i) => i.customId === 'register_modal' && i.user.id === interaction.user.id,
+          time: 60_000,
+        });
+        await modalSubmit.deferUpdate();
+
+        const name = modalSubmit.fields.getTextInputValue('character_name').trim();
+        const realm = modalSubmit.fields.getTextInputValue('realm').trim();
+        try {
+          const summary = await fetchCharacterSummary(name, realm);
+          if (summary.error) {
+            await interaction.editReply({
+              content: `Warmane API error: ${summary.error}`,
+              components: [],
+            });
+            return;
+          }
+          const gearScore = calculateGearScore(summary.equipment);
+          const { error } = await supabase.from('Players').insert({
+            discord_id: interaction.user.id,
+            main_character: name,
+            realm,
+          });
+          if (error) throw error;
+
+          const armoryUrl = `https://armory.warmane.com/character/${encodeURIComponent(name)}/${encodeURIComponent(realm)}`;
+          await interaction.editReply({
+            content: `Registered **[${summary.name}](${armoryUrl})** on ${summary.realm}! GearScore: **${gearScore}**`,
+            components: [],
+          });
+        } catch (err) {
+          console.error('Register main error:', err);
+          await interaction.editReply({
+            content: 'Failed to register character.',
+            components: [],
+          });
+        }
+      } catch {
+        await interaction.editReply({ content: 'Registration timed out.', components: [] });
+      }
+      return;
+    }
+
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId('register_select')
+      .setPlaceholder('Choose an option')
+      .addOptions(
+        { label: 'Register a new Alt', value: 'register_alt' },
+        { label: 'Manage my Characters', value: 'manage_chars' }
+      );
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+
+    const msg = await interaction.editReply({
+      content: 'You already have a main registered. What would you like to do?',
+      components: [row],
+    });
 
     try {
-      const { data: existingCharacter, error: selectError } = await supabase
-        .from('players')
-        .select('*')
-        .eq('discord_id', discordId)
-        .eq('character_name', characterName)
-        .eq('realm', realm)
-        .single();
+      const select = await msg.awaitMessageComponent({
+        componentType: ComponentType.StringSelect,
+        filter: (i) => i.customId === 'register_select' && i.user.id === interaction.user.id,
+        time: 60_000,
+      });
 
-      if (selectError && selectError.code !== 'PGRST116') {
-        console.error('Error selecting character:', selectError);
-        await interaction.editReply({ content: 'An error occurred while checking your characters.' });
+      if (select.values[0] === 'manage_chars') {
+        await select.update({
+          content: 'Use /character view or /character delete to manage your characters.',
+          components: [],
+        });
         return;
       }
 
-      if (existingCharacter) {
-        await interaction.editReply({ content: 'You have already registered this character.' });
-        return;
-      }
+      const modal = new ModalBuilder()
+        .setCustomId('register_modal')
+        .setTitle('Register Character')
+        .addComponents(
+          new ActionRowBuilder<TextInputBuilder>().addComponents(
+            new TextInputBuilder()
+              .setCustomId('character_name')
+              .setLabel('Character Name')
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+          ),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(
+            new TextInputBuilder()
+              .setCustomId('realm')
+              .setLabel('Realm')
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+          )
+        );
 
-      const { error: insertError } = await supabase
-        .from('players')
-        .insert([{ discord_id: discordId, character_name: characterName, realm }]);
+      await select.showModal(modal);
+      const modalSubmit = await select.awaitModalSubmit({
+        filter: (i) => i.customId === 'register_modal' && i.user.id === interaction.user.id,
+        time: 60_000,
+      });
+      await modalSubmit.deferUpdate();
 
-      if (insertError) {
-        console.error('Error inserting character:', insertError);
-        await interaction.editReply({ content: 'There was an error registering your character.' });
-        return;
-      }
-
-      const armoryUrl = `https://armory.warmane.com/character/${characterName}/${realm}`;
-      const apiUrl = `https://armory.warmane.com/api/character/${characterName}/${realm}/summary`;
-      const response = await fetch(apiUrl);
-      const playerData = await response.json();
-
-      if (playerData.error) {
-        if (playerData.error === 'Character not found') {
-          await interaction.editReply({ content: `Character ${characterName} registered, but could not be found on the Warmane Armory. Please check the spelling and try again.` });
+      const name = modalSubmit.fields.getTextInputValue('character_name').trim();
+      const realm = modalSubmit.fields.getTextInputValue('realm').trim();
+      try {
+        const summary = await fetchCharacterSummary(name, realm);
+        if (summary.error) {
+          await interaction.editReply({
+            content: `Warmane API error: ${summary.error}`,
+            components: [],
+          });
           return;
         }
-        await interaction.editReply({ content: `An error occurred while fetching data from Warmane: ${playerData.error}` });
-        return;
+        const gearScore = calculateGearScore(summary.equipment);
+        const { error } = await supabase.from('Alts').insert({
+          player_id: player.id,
+          character_name: name,
+        });
+        if (error) throw error;
+
+        const armoryUrl = `https://armory.warmane.com/character/${encodeURIComponent(name)}/${encodeURIComponent(realm)}`;
+        await interaction.editReply({
+          content: `Registered alt **[${summary.name}](${armoryUrl})** on ${summary.realm}! GearScore: **${gearScore}**`,
+          components: [],
+        });
+      } catch (err) {
+        console.error('Register alt error:', err);
+        await interaction.editReply({
+          content: 'Failed to register alt.',
+          components: [],
+        });
       }
-
-      const gearScore = calculateGearScore(playerData.equipment);
-
-      await interaction.editReply({ content: `Character [${playerData.name}](${armoryUrl}) on ${playerData.realm} registered successfully! Your GearScore is **${gearScore}**.` });
-    } catch (error) {
-      console.error('Unexpected error in /register:', error);
-      await interaction.editReply({ content: 'An unexpected error occurred while processing your command.' });
+    } catch {
+      await interaction.editReply({ content: 'Registration timed out.', components: [] });
     }
-  }
+  },
 };
 
 export default command;
