@@ -8,7 +8,7 @@ import {
   handleRaidRoleSelect,
   handleRaidCharacterSelect,
 } from '../utils/button-handlers';
-import { handleGsSetSelectMenu } from '../commands/gs';
+import { handleGsSelectMenu } from '../commands/gearscore';
 import { logError } from '../utils/logger';
 
 export default function registerInteractionCreate(client: Client, commands: Map<string, Command>, supabase: SupabaseClient) {
@@ -41,8 +41,8 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         await handleRaidCharacterSelect(interaction, supabase);
       } else if (interaction.customId === 'raid-instance-select') {
         await handleRaidInstanceSelect(interaction, supabase);
-      } else if (interaction.customId.startsWith('gs-set-select:')) {
-        await handleGsSetSelectMenu(interaction, supabase);
+      } else if (interaction.customId === 'gs-select') {
+        await handleGsSelectMenu(interaction, supabase);
       }
     }
   });
