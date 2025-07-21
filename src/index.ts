@@ -1,4 +1,6 @@
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
+import cron from 'node-cron';
+import { syncInGameGuilds } from './tasks/guild-sync';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -42,5 +44,13 @@ registerReady(client);
 registerInteractionCreate(client, commands, supabase);
 registerGuildMemberUpdate(client);
 registerGuildCreate(client);
+
+client.once('ready', () => {
+  // Schedule the smart guild sync task to run every 3 hours.
+  // '0 */3 * * *' means "at minute 0 past every 3rd hour"
+  cron.schedule('0 */3 * * *', () => {
+    syncInGameGuilds(client);
+  });
+});
 
 client.login(DISCORD_TOKEN);
