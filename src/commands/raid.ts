@@ -14,6 +14,7 @@ import {
   ChannelType,
   StringSelectMenuBuilder,
   StringSelectMenuInteraction,
+  MessageFlags,
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command, Raid } from '../types';
@@ -151,7 +152,7 @@ const command: Command = {
     const config = await requireGuildConfig(interaction);
     if (!config) return;
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (sub === 'create') {
       const member = interaction.member as GuildMember;
@@ -270,7 +271,7 @@ export async function handleRaidInstanceSelect(
   }
 
   if (!option) {
-    await interaction.reply({ content: 'Invalid raid selection.', ephemeral: true });
+    await interaction.reply({ content: 'Invalid raid selection.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -311,11 +312,11 @@ export async function handleRaidCreateModal(
 ) {
   const config = await getGuildConfig(interaction.guildId ?? '');
   if (!config || !config.raid_channel_id) {
-    await interaction.reply({ content: 'Guild is not fully configured.', ephemeral: true });
+    await interaction.reply({ content: 'Guild is not fully configured.', flags: MessageFlags.Ephemeral });
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const [, raidValue] = interaction.customId.split(':');
   const option = RAID_OPTIONS.find((o) => o.value === raidValue);

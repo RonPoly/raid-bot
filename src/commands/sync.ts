@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember, MessageFlags } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { requireGuildConfig } from '../utils/guild-config';
@@ -18,23 +18,23 @@ const command: Command = {
     const member = interaction.member as GuildMember;
     const officerRole = config.officer_role_id;
     if (!officerRole || !member.roles.cache.has(officerRole)) {
-      await interaction.reply({ content: 'Missing permission.', ephemeral: true });
+      await interaction.reply({ content: 'Missing permission.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const last = cooldowns.get(interaction.guildId!);
     if (last && Date.now() - last < 5 * 60 * 1000) {
-      await interaction.reply({ content: 'Sync recently performed. Try again later.', ephemeral: true });
+      await interaction.reply({ content: 'Sync recently performed. Try again later.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     cooldowns.set(interaction.guildId!, Date.now());
-    await interaction.reply({ content: 'Refreshing roster and syncing roles...', ephemeral: true });
+    await interaction.reply({ content: 'Refreshing roster and syncing roles...', flags: MessageFlags.Ephemeral });
 
     await clearRosterCache(config.warmane_guild_name, config.warmane_realm);
     await syncGuildRoles(interaction.client, interaction.guildId!, true);
 
-    await interaction.followUp({ content: 'Sync complete.', ephemeral: true });
+    await interaction.followUp({ content: 'Sync complete.', flags: MessageFlags.Ephemeral });
   }
 };
 

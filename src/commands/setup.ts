@@ -7,6 +7,7 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   ComponentType,
+  MessageFlags,
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
@@ -63,13 +64,13 @@ const command: Command = {
     ),
   async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
     if (!interaction.guild) {
-      await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+      await interaction.reply({ content: 'This command can only be used in a server.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const sub = interaction.options.getSubcommand();
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (sub === 'status') {
       const guildId = interaction.guild.id;
@@ -215,7 +216,7 @@ const command: Command = {
         );
 
       await dm.send({ embeds: [embed] });
-      await interaction.followUp({ content: 'Setup complete!', ephemeral: true });
+      await interaction.followUp({ content: 'Setup complete!', flags: MessageFlags.Ephemeral });
     } catch {
       await dm.send('Setup aborted.');
     }

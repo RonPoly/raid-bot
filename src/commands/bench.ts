@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember, MessageFlags } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
 import { requireGuildConfig } from '../utils/guild-config';
@@ -17,7 +17,7 @@ const command: Command = {
     const member = interaction.member as GuildMember;
     const officerRoleId = config.officer_role_id || '';
     if (!officerRoleId || !member.roles.cache.has(officerRoleId)) {
-      await interaction.reply({ content: 'Missing permission.', ephemeral: true });
+      await interaction.reply({ content: 'Missing permission.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -33,7 +33,7 @@ const command: Command = {
       .maybeSingle();
 
     if (!signup) {
-      await interaction.reply({ content: 'Signup not found.', ephemeral: true });
+      await interaction.reply({ content: 'Signup not found.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -42,7 +42,7 @@ const command: Command = {
       .update({ benched: !remove })
       .eq('id', signup.id);
 
-    await interaction.reply({ content: remove ? 'Removed from bench.' : 'Benched.', ephemeral: true });
+    await interaction.reply({ content: remove ? 'Removed from bench.' : 'Benched.', flags: MessageFlags.Ephemeral });
   }
 };
 
