@@ -11,7 +11,6 @@ import { buildRaidEmbed } from './embed-builder';
 import { buildCharacterSelectMenu } from './character-select';
 import { getGuildConfig } from './guild-config';
 
-const ROLE_SELECT_ID = (raidId: string) => `raid-role-select:${raidId}`;
 const CHAR_SELECT_ID = (raidId: string) => `raid-char-select:${raidId}`;
 
 export async function handleRaidSignupButton(
