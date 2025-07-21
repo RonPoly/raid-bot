@@ -3,46 +3,43 @@
 A Discord bot for managing raids and guild roster synchronization on the Warmane WOTLK private server. It is written in TypeScript and targets Node.js 20 LTS.
 
 ## Features
-- Interactive `/setup` wizard to configure each Discord server with your Warmane guild, select member/officer roles and choose the raid signup channel.
-- `/register` command with modals to register your main character or alts. Characters are verified via the Warmane Armory and automatically receive a calculated GearScore.
-- `/character` command to list all of your registered characters or delete one you no longer use.
-- `/gs` command to set a character's GearScore or view GearScores for yourself or another user.
-- `/raid` command to create, list and cancel raids. Players sign up through dropdown menus choosing their character and role. Raid embeds show open slots and average GS.
-- `/roster` command to view online/offline guild members via the Warmane API.
-- Raid templates for quickly creating common raid setups.
-- `/bench` command for officers to bench characters and display them in raid embeds.
-- Automatic raid reminders pinging signed players 30 minutes before start and logging attendance.
-- Automatic role synchronization that checks the Warmane API every few minutes and updates Discord roles based on guild membership.
-- Periodic "smart" guild sync task to clean up characters that have left the guild.
-- Supports multiple Discord servers, each with its own configuration.
+
+-   **Interactive Setup**: A `/setup` command guides administrators through a DM-based wizard to configure the bot for their server, including Warmane guild details, member/officer roles, and the raid announcement channel.
+-   **Character Registration**: Use `/register` to open a modal where users can enter their character name. The bot verifies the character exists in the configured Warmane guild and automatically calculates their GearScore.
+-   **Character Management**: The `/character` command allows users to view their list of registered characters or delete a character they no longer play.
+-   **GearScore Commands**: Use `/gearscore` to fetch the latest GearScore for any character from the Warmane Armory or to view the registered characters of a specific Discord user.
+-   **Raid Management**:
+    * Officers can use `/raid create` to open a dynamic raid creation wizard.
+    * Players can see upcoming events with `/raid list` and officers can cancel them with `/raid cancel`.
+    * Players sign up for raids using buttons and select their character and role via dropdown menus.
+    * Raid embeds automatically update to show the current roster, class composition, and average GearScore.
+-   **Raid Templates**: Officers can save and manage raid templates for frequently run instances using the `/template` command.
+-   **Roster Management**: The `/roster` command displays the online and offline status of all members in the configured Warmane guild. Officers can use `/bench` to move a signed-up player to the bench, which is displayed separately in the raid embed.
+-   **Automated Tasks**:
+    * **Raid Reminders**: The bot automatically sends a reminder ping to all signed-up players 30 minutes before a raid is scheduled to start.
+    * **Role Sync**: Automatically synchronizes Discord roles with in-game guild membership based on the Warmane API.
+    * **Guild Cleanup**: A periodic task runs to remove character data for players who are no longer in the in-game guild.
 
 ## Setup
-1. Ensure you have a Linux environment with sudo privileges.
-2. Run `scripts/setup.sh` to install Node.js 20, npm and git, create the required folders and install dependencies.
-3. Copy `.env.example` to `.env` and fill in all variables.
-4. Deploy slash commands with `npm run deploy` and then run `/setup run` in your Discord server to link it with your Warmane guild.
+
+1.  Clone the repository.
+2.  Ensure you have Node.js v20+ and npm installed.
+3.  Run the setup script: `scripts/setup.sh`.
+4.  Copy `.env.example` to `.env` and fill in all required variables.
+5.  Deploy the slash commands to Discord: `npm run deploy`.
+6.  Run the `/setup` command in your Discord server to begin the configuration wizard.
 
 ## Environment Variables
-The `.env` file uses the following keys:
-- `DISCORD_TOKEN` – bot token from Discord
-- `CLIENT_ID` – Discord application ID found in the Developer Portal
-- `SUPABASE_URL` – Supabase project URL
-- `SUPABASE_ANON_KEY` – Supabase anon key
 
-The `CLIENT_ID` can be found in the Discord Developer Portal under **Your App** > **Application ID**.
+The `.env` file requires the following keys:
+
+-   `DISCORD_TOKEN`: Your Discord bot token.
+-   `CLIENT_ID`: Your Discord application's client ID.
+-   `SUPABASE_URL`: Your Supabase project URL.
+-   `SUPABASE_ANON_KEY`: Your Supabase project's anonymous key.
 
 ## Running the Bot
-After completing setup and configuring the environment variables:
 
-```bash
-npm run build
-npm start
-```
-
-During development you can run:
-
-```bash
-npm run dev
-```
-
-The bot will log in to Discord and begin managing raids according to your configuration.
+-   `npm run build`: Compiles the TypeScript code.
+-   `npm run start`: Starts the bot from the compiled JavaScript files.
+-   `npm run dev`: Runs the bot in development mode using `ts-node` for live reloading.
