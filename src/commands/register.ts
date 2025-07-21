@@ -62,6 +62,7 @@ const command: Command = {
           await submit.editReply({ content: `Warmane API error: ${summary.error}` });
           return;
         }
+        console.log('Warmane equipment data:', summary.equipment);
         const gearScore = calculateGearScore(summary.equipment);
         const { error } = await supabase.from('players').insert({
           guild_id: interaction.guildId,

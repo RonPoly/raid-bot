@@ -1,0 +1,5 @@
+[
+  { "itemId": 12345, "itemLevel": 200, "slot": "Head" },
+  { "itemId": 67890, "itemLevel": 213, "slot": "Chest" },
+  { "itemId": 11111, "itemLevel": 232, "slot": "Weapon" }
+]
