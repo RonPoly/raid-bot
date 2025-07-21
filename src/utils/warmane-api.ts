@@ -19,10 +19,15 @@ function summaryCachePath(name: string, realm: string): string {
 
 async function readCache(file: string, maxAgeMs: number) {
   try {
-    const stat = await fs.stat(file);
-    if (Date.now() - stat.mtimeMs < maxAgeMs) {
-      const text = await fs.readFile(file, 'utf-8');
-      return JSON.parse(text);
+    const handle = await fs.open(file, 'r');
+    try {
+      const stat = await handle.stat();
+      if (Date.now() - stat.mtimeMs < maxAgeMs) {
+        const text = await handle.readFile('utf-8');
+        return JSON.parse(text);
+      }
+    } finally {
+      await handle.close();
     }
   } catch {
     // ignore
