@@ -14,6 +14,7 @@ export interface Player {
   discord_id: string;
   character_name: string;
   realm: string;
+  class?: string | null;
   gear_score?: number | null;
   last_updated?: string | null;
   created_at?: string;
@@ -50,9 +51,38 @@ export interface RaidSignup {
   raid_id: string;
   character_name: string;
   role: 'tank' | 'healer' | 'dps';
+  class?: string | null;
   gear_score: number;
   signed_up_at: string;
   comment?: string | null;
+}
+
+export interface RaidBench {
+  id: string;
+  raid_id: string;
+  character_name: string;
+  gear_score?: number | null;
+  added_at: string;
+}
+
+export interface RaidTemplate {
+  id: string;
+  guild_id: string;
+  name: string;
+  instance: string;
+  tank_slots: number;
+  healer_slots: number;
+  dps_slots: number;
+  min_gearscore: number;
+  created_at?: string;
+}
+
+export interface RaidLog {
+  id: string;
+  raid_id: string;
+  character_name: string;
+  role: string;
+  logged_at: string;
 }
 
 export interface GuildConfig {

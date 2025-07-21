@@ -76,11 +76,38 @@ async function signupCharacter(
 ) {
   const { data: gs } = await supabase
     .from('players')
-    .select('gear_score')
+    .select('gear_score, class')
     .eq('guild_id', interaction.guildId ?? '')
     .eq('discord_id', interaction.user.id)
     .eq('character_name', character)
     .maybeSingle();
+
+  const charClass = gs?.class as string | undefined;
+
+  const roleAllowed: Record<'tank' | 'healer' | 'dps', string[]> = {
+    tank: ['Warrior', 'Paladin', 'Death Knight', 'Druid'],
+    healer: ['Paladin', 'Priest', 'Shaman', 'Druid'],
+    dps: [
+      'Warrior',
+      'Paladin',
+      'Death Knight',
+      'Druid',
+      'Rogue',
+      'Hunter',
+      'Shaman',
+      'Mage',
+      'Warlock',
+      'Priest'
+    ]
+  };
+
+  if (charClass && !roleAllowed[role].includes(charClass)) {
+    await interaction.update({
+      content: `${character} cannot sign as ${role}.`,
+      components: []
+    });
+    return;
+  }
 
   await supabase
     .from('raid_signups')
@@ -93,6 +120,7 @@ async function signupCharacter(
     character_name: character,
     role,
     gear_score: gs?.gear_score ?? null,
+    benched: false,
   });
 
   const { data: signups } = await supabase
@@ -100,10 +128,26 @@ async function signupCharacter(
     .select('*')
     .eq('raid_id', raidId);
 
+  const { data: playerRows } = await supabase
+    .from('players')
+    .select('character_name, class')
+    .eq('guild_id', interaction.guildId ?? '');
+
+  const signupWithClass = (signups as RaidSignup[]).map((s) => ({
+    ...s,
+    class: playerRows?.find((p) => p.character_name === s.character_name)?.class ?? null
+  }));
+
   const config = await getGuildConfig(interaction.guildId ?? '');
   const realm = config?.warmane_realm ?? 'Lordaeron';
 
-  const embed = buildRaidEmbed(raid as Raid, signups as RaidSignup[], realm);
+  const bench = signupWithClass.filter((s) => (s as any).benched);
+  const embed = buildRaidEmbed(
+    raid as Raid,
+    signupWithClass.filter((s) => !(s as any).benched) as RaidSignup[],
+    realm,
+    bench as any
+  );
   if (raid.signup_message_id) {
     try {
       const chan = interaction.channel as TextChannel;
@@ -166,10 +210,26 @@ export async function handleRaidLeaveButton(
     .select('*')
     .eq('raid_id', raidId);
 
+  const { data: playerRows } = await supabase
+    .from('players')
+    .select('character_name, class')
+    .eq('guild_id', interaction.guildId ?? '');
+
+  const signupWithClass = (signups as RaidSignup[]).map((s) => ({
+    ...s,
+    class: playerRows?.find((p) => p.character_name === s.character_name)?.class ?? null
+  }));
+
   const config = await getGuildConfig(interaction.guildId ?? '');
   const realm = config?.warmane_realm ?? 'Lordaeron';
 
-  const embed = buildRaidEmbed(raid as Raid, signups as RaidSignup[], realm);
+  const bench = signupWithClass.filter((s) => (s as any).benched);
+  const embed = buildRaidEmbed(
+    raid as Raid,
+    signupWithClass.filter((s) => !(s as any).benched) as RaidSignup[],
+    realm,
+    bench as any
+  );
   if (raid.signup_message_id) {
     try {
       const chan = interaction.channel as TextChannel;
