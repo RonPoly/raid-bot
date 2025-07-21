@@ -4,8 +4,18 @@ import path from 'path';
 const BASE_URL = 'https://armory.warmane.com/api';
 
 const CACHE_DIR = path.join(__dirname, '../../cache');
-const ROSTER_CACHE = path.join(CACHE_DIR, 'guild_roster.json');
-const SUMMARY_CACHE = path.join(CACHE_DIR, 'guild_summary.json');
+
+function slugify(value: string): string {
+  return value.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+}
+
+function rosterCachePath(name: string, realm: string): string {
+  return path.join(CACHE_DIR, `${slugify(name)}_${slugify(realm)}_roster.json`);
+}
+
+function summaryCachePath(name: string, realm: string): string {
+  return path.join(CACHE_DIR, `${slugify(name)}_${slugify(realm)}_summary.json`);
+}
 
 async function readCache(file: string, maxAgeMs: number) {
   try {
@@ -30,7 +40,8 @@ function encodeGuildName(name: string): string {
 }
 
 export async function fetchGuildMembers(name: string, realm: string) {
-  const cached = await readCache(ROSTER_CACHE, 60 * 60 * 1000);
+  const cacheFile = rosterCachePath(name, realm);
+  const cached = await readCache(cacheFile, 60 * 60 * 1000);
   if (cached && cached.name === name && cached.realm === realm) {
     const members = cached.members ?? cached.roster ?? [];
     const byName: Record<string, any> = {};
@@ -54,7 +65,7 @@ export async function fetchGuildMembers(name: string, realm: string) {
   const json = await res.json();
   console.log('[WarmaneAPI] Guild members response:', JSON.stringify(json));
   const toCache = { ...json, name, realm };
-  await writeCache(ROSTER_CACHE, toCache);
+  await writeCache(cacheFile, toCache);
   const members = json.members ?? json.roster ?? [];
   const byName: Record<string, any> = {};
   for (const m of members) {
@@ -72,7 +83,8 @@ export async function fetchCharacterSummary(name: string, realm: string) {
 }
 
 export async function fetchGuildSummary(name: string, realm: string) {
-  const cached = await readCache(SUMMARY_CACHE, 60 * 60 * 1000);
+  const cacheFile = summaryCachePath(name, realm);
+  const cached = await readCache(cacheFile, 60 * 60 * 1000);
   if (cached && cached.name === name && cached.realm === realm) {
     return cached;
   }
@@ -87,7 +99,7 @@ export async function fetchGuildSummary(name: string, realm: string) {
   }
   const json = await res.json();
   const toCache = { ...json, name, realm };
-  await writeCache(SUMMARY_CACHE, toCache);
+  await writeCache(cacheFile, toCache);
   return toCache;
 }
 
