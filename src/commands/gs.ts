@@ -62,8 +62,11 @@ const command: Command = {
 
       if (characterOpt) {
         await supabase
-          .from('GearScores')
-          .upsert({ character_name: characterOpt, gear_score: score, last_updated: new Date().toISOString() });
+          .from('players')
+          .update({ gear_score: score, last_updated: new Date().toISOString() })
+          .eq('guild_id', interaction.guildId || '')
+          .eq('discord_id', interaction.user.id)
+          .eq('character_name', characterOpt);
         await interaction.reply({ content: `Set GearScore of ${characterOpt} to ${score}.`, ephemeral: true });
         return;
       }
@@ -72,17 +75,17 @@ const command: Command = {
         const { menu, characters } = await buildCharacterSelectMenu(
           supabase,
           interaction.user.id,
+          interaction.guildId || '',
           SET_SELECT_ID(score)
         );
 
         if (characters.length === 1) {
           await supabase
-            .from('GearScores')
-            .upsert({
-              character_name: characters[0],
-              gear_score: score,
-              last_updated: new Date().toISOString(),
-            });
+            .from('players')
+            .update({ gear_score: score, last_updated: new Date().toISOString() })
+            .eq('guild_id', interaction.guildId || '')
+            .eq('discord_id', interaction.user.id)
+            .eq('character_name', characters[0]);
           await interaction.reply({
             content: `Set GearScore of ${characters[0]} to ${score}.`,
             ephemeral: true,
@@ -98,34 +101,21 @@ const command: Command = {
     } else if (sub === 'view') {
       const user: User = interaction.options.getUser('user') ?? interaction.user;
 
-      const { data: player } = await supabase
-        .from('Players')
-        .select('id, main_character')
+      const { data: characters } = await supabase
+        .from('players')
+        .select('character_name, gear_score')
         .eq('discord_id', user.id)
-        .maybeSingle();
+        .eq('guild_id', interaction.guildId || '');
 
-      if (!player) {
+      if (!characters || characters.length === 0) {
         await interaction.reply({ content: 'That user has not registered a character.', ephemeral: true });
         return;
       }
 
-      const { data: alts } = await supabase
-        .from('Alts')
-        .select('character_name')
-        .eq('player_id', player.id);
-
-      const characters = [player.main_character, ...(alts?.map((a) => a.character_name) ?? [])];
-
-      const { data: scores } = await supabase
-        .from('GearScores')
-        .select('character_name, gear_score')
-        .in('character_name', characters);
-
-      const embeds = characters.map((name) => {
-        const record = scores?.find((s) => s.character_name.toLowerCase() === name.toLowerCase());
-        const score = record?.gear_score;
+      const embeds = characters.map((c) => {
+        const score = c.gear_score ?? undefined;
         const embed = new EmbedBuilder()
-          .setTitle(name)
+          .setTitle(c.character_name)
           .setColor(gsColor(score))
           .setDescription(score ? `${score} GS` : 'No GearScore set');
         return embed;
@@ -152,8 +142,11 @@ export async function handleGsSetSelectMenu(
   }
 
   await supabase
-    .from('GearScores')
-    .upsert({ character_name: character, gear_score: score, last_updated: new Date().toISOString() });
+    .from('players')
+    .update({ gear_score: score, last_updated: new Date().toISOString() })
+    .eq('guild_id', interaction.guildId || '')
+    .eq('discord_id', interaction.user.id)
+    .eq('character_name', character);
 
   await interaction.update({ content: `Set GearScore of ${character} to ${score}.`, components: [] });
 }
