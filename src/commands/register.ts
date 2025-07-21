@@ -9,9 +9,16 @@ import {
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
-import { fetchCharacterSummary } from '../utils/warmane-api';
+import { fetchCharacterSummary, fetchGuildMembers } from '../utils/warmane-api';
 import { calculateGearScore } from '../gearscore-calculator';
 import { requireGuildConfig } from '../utils/guild-config';
+
+function normalize(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -34,7 +41,8 @@ const command: Command = {
         new ActionRowBuilder<TextInputBuilder>().addComponents(
           new TextInputBuilder()
             .setCustomId('character_name')
-            .setLabel('Character Name')
+            .setLabel('Character Name (case sensitive - exact in-game)')
+            .setPlaceholder('e.g. Arth\u00e1s')
             .setStyle(TextInputStyle.Short)
             .setRequired(true),
         )
@@ -59,6 +67,17 @@ const command: Command = {
           await submit.editReply({ content: `Warmane API error: ${summary.error}` });
           return;
         }
+
+        const rosterData = await fetchGuildMembers(config.warmane_guild_name, realm);
+        const members = rosterData.members ?? rosterData.roster ?? [];
+        const inGuild = members.some((m: any) => normalize(m.name) === normalize(name));
+        if (!inGuild) {
+          await submit.editReply({
+            content: `Character ${name} is not in ${config.warmane_guild_name}. Only guild members can register their characters.`
+          });
+          return;
+        }
+
         console.log('Warmane equipment data:', summary.equipment);
         const gearScore = calculateGearScore(summary.equipment);
         const { error } = await supabase.from('players').insert({
