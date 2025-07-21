@@ -1,79 +1,85 @@
-import {
-  SlashCommandBuilder,
-  ChatInputCommandInteraction
-} from 'discord.js';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { supabase } from '../supabaseClient';
+import { calculateGearScore } from '../gearscore-calculator';
+import fetch from 'node-fetch';
 import { Command } from '../types';
-import { requireGuildConfig } from '../utils/guild-config';
-import { fetchCharacterSummary } from '../utils/warmane-api';
-import { gearScoreCalculator } from '../utils/gearscore-calculator';
-import { updateGearScore } from '../utils/database';
 
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('register')
-    .setDescription('Register a character')
-    .addStringOption((opt) =>
-      opt
-        .setName('character')
-        .setDescription('Character name (exact in-game spelling)')
+    .setDescription('Registers a new character to your Discord account.')
+    .addStringOption(option =>
+      option.setName('character')
+        .setDescription('Your character name')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('realm')
+        .setDescription('Your realm')
         .setRequired(true)
-    ),
-  async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
-    const character = interaction.options.getString('character', true);
+        .addChoices(
+          { name: 'Lordaeron', value: 'Lordaeron' },
+          { name: 'Icecrown', value: 'Icecrown' },
+          { name: 'Onyxia', value: 'Onyxia' }
+        )),
+
+  async execute(interaction: ChatInputCommandInteraction) {
+    await interaction.deferReply({ ephemeral: true });
+
+    const characterName = interaction.options.getString('character', true);
+    const realm = interaction.options.getString('realm', true);
     const discordId = interaction.user.id;
 
-    const config = await requireGuildConfig(interaction);
-    if (!config) return;
-    const realm = config.warmane_realm;
-
-    // Prevent duplicate registration of the same character for this user
-    const { data: existing } = await supabase
-      .from('Players')
-      .select('id')
-      .eq('discord_id', discordId)
-      .eq('main_character', character)
-      .eq('realm', realm)
-      .maybeSingle();
-
-    if (existing) {
-      await interaction.reply({
-        content: `You already registered **${character}** on **${realm}**.`,
-        ephemeral: true
-      });
-      return;
-    }
-
-    // Fetch character data from Warmane API
-    let summary: any;
     try {
-      summary = await fetchCharacterSummary(character, realm);
-    } catch {
-      await interaction.reply({ content: 'Character not found on Warmane.', ephemeral: true });
-      return;
+      const { data: existingCharacter, error: selectError } = await supabase
+        .from('players')
+        .select('*')
+        .eq('discord_id', discordId)
+        .eq('character_name', characterName)
+        .eq('realm', realm)
+        .single();
+
+      if (selectError && selectError.code !== 'PGRST116') {
+        console.error('Error selecting character:', selectError);
+        await interaction.editReply({ content: 'An error occurred while checking your characters.' });
+        return;
+      }
+
+      if (existingCharacter) {
+        await interaction.editReply({ content: 'You have already registered this character.' });
+        return;
+      }
+
+      const { error: insertError } = await supabase
+        .from('players')
+        .insert([{ discord_id: discordId, character_name: characterName, realm }]);
+
+      if (insertError) {
+        console.error('Error inserting character:', insertError);
+        await interaction.editReply({ content: 'There was an error registering your character.' });
+        return;
+      }
+
+      const armoryUrl = `https://armory.warmane.com/character/${characterName}/${realm}`;
+      const apiUrl = `https://armory.warmane.com/api/character/${characterName}/${realm}/summary`;
+      const response = await fetch(apiUrl);
+      const playerData = await response.json();
+
+      if (playerData.error) {
+        if (playerData.error === 'Character not found') {
+          await interaction.editReply({ content: `Character ${characterName} registered, but could not be found on the Warmane Armory. Please check the spelling and try again.` });
+          return;
+        }
+        await interaction.editReply({ content: `An error occurred while fetching data from Warmane: ${playerData.error}` });
+        return;
+      }
+
+      const gearScore = calculateGearScore(playerData.equipment);
+
+      await interaction.editReply({ content: `Character [${playerData.name}](${armoryUrl}) on ${playerData.realm} registered successfully! Your GearScore is **${gearScore}**.` });
+    } catch (error) {
+      console.error('Unexpected error in /register:', error);
+      await interaction.editReply({ content: 'An unexpected error occurred while processing your command.' });
     }
-
-    const gearScore = gearScoreCalculator.calculate(summary.equipment ?? []);
-
-    const { data: inserted, error } = await supabase
-      .from('Players')
-      .insert({ discord_id: discordId, main_character: character, realm })
-      .select('id')
-      .single();
-
-    if (!inserted || error) {
-      await interaction.reply({ content: 'Failed to register character.', ephemeral: true });
-      return;
-    }
-
-    await updateGearScore(supabase, character, gearScore, inserted.id);
-
-    const armoryUrl = `https://armory.warmane.com/character/${encodeURIComponent(character)}/${encodeURIComponent(realm)}`;
-
-    await interaction.reply({
-      content: `Character [${character}](${armoryUrl}) on ${realm} has been registered successfully! Your GearScore is ${gearScore}.`,
-      ephemeral: true
-    });
   }
 };
 
