@@ -85,6 +85,7 @@ const command: Command = {
           discord_id: interaction.user.id,
           character_name: name,
           realm,
+          class: summary.class,
           gear_score: gearScore,
           last_updated: new Date().toISOString(),
         });

@@ -1,5 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
-import { Raid, RaidSignup } from '../types';
+import { Raid, RaidSignup, RaidBench } from '../types';
 
 /**
  * Build a raid signup embed following the format outlined in AGENTS.md.
@@ -19,6 +19,7 @@ export function buildRaidEmbed(
   raid: Raid,
   signups: RaidSignup[] = [],
   realm: string,
+  bench: RaidBench[] = []
 ) {
   const roleSection = (
     emoji: string,
@@ -39,8 +40,18 @@ export function buildRaidEmbed(
     if (open > 0) {
       members.push(`• [${open} ${open === 1 ? 'slot' : 'slots'} open]`);
     }
+    const classes: Record<string, number> = {};
+    signups.filter((s) => s.role === role).forEach((s) => {
+      if (s.class) {
+        classes[s.class] = (classes[s.class] || 0) + 1;
+      }
+    });
+    const classComp = Object.entries(classes)
+      .map(([c, n]) => `${n} ${c}${n > 1 ? 's' : ''}`)
+      .join(', ');
+
     const name = `${emoji} ${roleName} (${members.length - (open > 0 ? 1 : 0)}/${max})`;
-    const value = members.join('\n') || '• [open]';
+    const value = members.join('\n') + (classComp ? `\n*${classComp}*` : '') || '• [open]';
     return { name, value } as const;
   };
 
@@ -53,8 +64,17 @@ export function buildRaidEmbed(
   const totalSlots = raid.tank_slots + raid.healer_slots + raid.dps_slots;
   const footer = `📊 Average GS: ${avgGs} | Min required: ${raid.min_gearscore}\n👥 Total: ${signups.length}/${totalSlots}`;
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(`${raid.instance} - ${raid.scheduled_date}`)
     .addFields(tankField, healerField, dpsField)
     .setFooter({ text: footer });
+
+  if (bench.length > 0) {
+    const list = bench
+      .map((b) => `[${b.character_name}](https://armory.warmane.com/character/${encodeURIComponent(b.character_name)}/${encodeURIComponent(realm)})`)
+      .join('\n');
+    embed.addFields({ name: 'Benched', value: list });
+  }
+
+  return embed;
 }

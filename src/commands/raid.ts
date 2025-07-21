@@ -159,6 +159,11 @@ const command: Command = {
         return;
       }
 
+      const { data: templates } = await supabase
+        .from('raid_templates')
+        .select('*')
+        .eq('guild_id', interaction.guildId || '');
+
       const menu = new StringSelectMenuBuilder()
         .setCustomId(INSTANCE_SELECT_ID)
         .setPlaceholder('Select raid instance')
@@ -169,6 +174,12 @@ const command: Command = {
             description: o.description,
           }))
         );
+
+      if (templates && templates.length > 0) {
+        for (const t of templates) {
+          menu.addOptions({ label: t.name, value: `template:${t.id}`, description: t.instance });
+        }
+      }
       const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
       await interaction.reply({ content: 'Choose raid instance:', components: [row], ephemeral: true });
     } else if (sub === 'list') {
@@ -238,7 +249,24 @@ export async function handleRaidInstanceSelect(
   interaction: StringSelectMenuInteraction,
   supabase: SupabaseClient
 ) {
-  const option = RAID_OPTIONS.find((o) => o.value === interaction.values[0]);
+  let option = RAID_OPTIONS.find((o) => o.value === interaction.values[0]);
+
+  if (!option && interaction.values[0].startsWith('template:')) {
+    const id = interaction.values[0].split(':')[1];
+    const { data } = await supabase.from('raid_templates').select('*').eq('id', id).maybeSingle();
+    if (data) {
+      option = {
+        label: data.instance,
+        description: data.name,
+        value: `template:${id}`,
+        tanks: data.tank_slots,
+        healers: data.healer_slots,
+        dps: data.dps_slots,
+        minGs: data.min_gearscore
+      };
+    }
+  }
+
   if (!option) {
     await interaction.reply({ content: 'Invalid raid selection.', ephemeral: true });
     return;
@@ -334,7 +362,7 @@ export async function handleRaidCreateModal(
       .setStyle(ButtonStyle.Secondary)
   );
 
-  const embed = buildRaidEmbed(raid as Raid, [], config.warmane_realm);
+  const embed = buildRaidEmbed(raid as Raid, [], config.warmane_realm, []);
   const channel = interaction.guild?.channels.cache.get(config.raid_channel_id) as TextChannel | undefined;
   if (!channel || channel.type !== ChannelType.GuildText) {
     await interaction.reply({ content: 'Raid channel not found.', ephemeral: true });

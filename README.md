@@ -8,6 +8,10 @@ A Discord bot for managing raids and guild roster synchronization on the Warmane
 - `/character` command to list all of your registered characters or delete one you no longer use.
 - `/gs` command to set a character's GearScore or view GearScores for yourself or another user.
 - `/raid` command to create, list and cancel raids. Players sign up through dropdown menus choosing their character and role. Raid embeds show open slots and average GS.
+- `/roster` command to view online/offline guild members via the Warmane API.
+- Raid templates for quickly creating common raid setups.
+- `/bench` command for officers to bench characters and display them in raid embeds.
+- Automatic raid reminders pinging signed players 30 minutes before start and logging attendance.
 - Automatic role synchronization that checks the Warmane API every few minutes and updates Discord roles based on guild membership.
 - Periodic "smart" guild sync task to clean up characters that have left the guild.
 - Supports multiple Discord servers, each with its own configuration.
