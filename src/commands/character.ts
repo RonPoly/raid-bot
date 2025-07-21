@@ -1,98 +1,122 @@
-import {
-  SlashCommandBuilder,
-  ChatInputCommandInteraction,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ComponentType
-} from 'discord.js';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType, StringSelectMenuOptionBuilder } from 'discord.js';
+import { supabase } from '../supabaseClient';
 import { Command } from '../types';
-
-const DELETE_SELECT_ID = 'character-delete-select';
-const DELETE_CONFIRM_ID = 'character-delete-confirm';
 
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('character')
-    .setDescription('Manage your characters')
-    .addSubcommand((sub) => sub.setName('view').setDescription('View your characters'))
-    .addSubcommand((sub) => sub.setName('delete').setDescription('Delete a character')),
-  async execute(interaction: ChatInputCommandInteraction, supabase: SupabaseClient) {
-    const sub = interaction.options.getSubcommand();
-    const discordId = interaction.user.id;
+    .setDescription('Manage your registered characters.')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('view')
+        .setDescription('View all your registered characters.'))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('delete')
+        .setDescription('Delete one of your registered characters.')),
 
-    if (sub === 'view') {
-      const { data: chars } = await supabase
-        .from('Players')
-        .select('id, main_character, realm')
-        .eq('discord_id', discordId);
+  async execute(interaction: ChatInputCommandInteraction) {
+    const subcommand = interaction.options.getSubcommand();
+    await interaction.deferReply({ ephemeral: true });
 
-      if (!chars || chars.length === 0) {
-        await interaction.reply({ content: 'You have no registered characters.', ephemeral: true });
-        return;
-      }
-
-      const list = chars.map(c => `* **${c.main_character}** - *${c.realm}*`).join('\n');
-      await interaction.reply({ content: `Your Registered Characters:\n${list}`, ephemeral: true });
-    } else if (sub === 'delete') {
-      const { data: chars } = await supabase
-        .from('Players')
-        .select('id, main_character, realm')
-        .eq('discord_id', discordId);
-
-      if (!chars || chars.length === 0) {
-        await interaction.reply({ content: 'You have no registered characters.', ephemeral: true });
-        return;
-      }
-
-      const menu = new StringSelectMenuBuilder()
-        .setCustomId(DELETE_SELECT_ID)
-        .setPlaceholder('Select character')
-        .addOptions(chars.map(c => ({
-          label: `${c.main_character} (${c.realm})`,
-          value: c.id
-        })));
-
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-      const msg = await interaction.reply({ content: 'Choose a character to delete:', components: [row], ephemeral: true, fetchReply: true });
-
-      try {
-        const select = await msg.awaitMessageComponent({
-          componentType: ComponentType.StringSelect,
-          time: 30_000,
-          filter: i => i.user.id === discordId
-        });
-
-        const charId = select.values[0];
-        const chosen = chars.find(c => c.id === charId);
-        if (!chosen) {
-          await select.update({ content: 'Invalid selection.', components: [] });
-          return;
-        }
-
-        const confirmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId(DELETE_CONFIRM_ID).setLabel('Confirm').setStyle(ButtonStyle.Danger)
-        );
-        const confirmMsg = await select.update({ content: `Delete ${chosen.main_character} on ${chosen.realm}?`, components: [confirmRow] });
-
-        const btn = await confirmMsg.awaitMessageComponent({
-          componentType: ComponentType.Button,
-          time: 30_000,
-          filter: i => i.user.id === discordId
-        });
-
-        if (btn.customId === DELETE_CONFIRM_ID) {
-          await supabase.from('Players').delete().eq('id', charId);
-          await btn.update({ content: `${chosen.main_character} has been deleted.`, components: [] });
-        }
-      } catch {
-        await interaction.editReply({ content: 'Action timed out.', components: [] });
-      }
+    if (subcommand === 'view') {
+      await viewCharacters(interaction);
+    } else if (subcommand === 'delete') {
+      await deleteCharacter(interaction);
     }
   }
 };
-
 export default command;
 
+async function viewCharacters(interaction: ChatInputCommandInteraction) {
+  const discordId = interaction.user.id;
+  const { data: characters, error } = await supabase
+    .from('players')
+    .select('character_name, realm')
+    .eq('discord_id', discordId);
+
+  if (error) {
+    await interaction.editReply({ content: 'There was an error fetching your characters.' });
+    return;
+  }
+  if (!characters || characters.length === 0) {
+    await interaction.editReply({ content: 'You have no characters registered.' });
+    return;
+  }
+
+  const characterList = characters.map(c => `• **${c.character_name}** - *${c.realm}*`).join('\n');
+  await interaction.editReply({ content: `**Your Registered Characters:**\n${characterList}` });
+}
+
+async function deleteCharacter(interaction: ChatInputCommandInteraction) {
+  const discordId = interaction.user.id;
+  const { data: characters, error } = await supabase
+    .from('players')
+    .select('id, character_name, realm')
+    .eq('discord_id', discordId);
+
+  if (error || !characters || characters.length === 0) {
+    await interaction.editReply({ content: 'You have no characters to delete.' });
+    return;
+  }
+
+  const options = characters.map(char =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${char.character_name} (${char.realm})`)
+      .setValue(char.id.toString())
+  );
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('delete_character_menu')
+    .setPlaceholder('Select a character to delete')
+    .addOptions(options);
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+  const response = await interaction.editReply({
+    content: 'Which character would you like to delete?',
+    components: [row]
+  });
+
+  try {
+    const confirmation = await response.awaitMessageComponent({
+      filter: i => i.user.id === interaction.user.id && i.customId === 'delete_character_menu',
+      time: 60_000,
+      componentType: ComponentType.StringSelect
+    });
+
+    const characterIdToDelete = confirmation.values[0];
+    const characterToDelete = characters.find(c => c.id.toString() === characterIdToDelete);
+
+    const confirmButton = new ButtonBuilder()
+      .setCustomId('confirm_delete')
+      .setLabel('Confirm Delete')
+      .setStyle(ButtonStyle.Danger);
+
+    const cancelButton = new ButtonBuilder()
+      .setCustomId('cancel_delete')
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Secondary);
+
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton, cancelButton);
+
+    await confirmation.update({
+      content: `Are you sure you want to delete **${characterToDelete?.character_name}**? This cannot be undone.`,
+      components: [buttonRow]
+    });
+
+    const buttonInteraction = await response.awaitMessageComponent({
+      filter: i => i.user.id === interaction.user.id,
+      time: 60_000
+    });
+
+    if (buttonInteraction.customId === 'confirm_delete') {
+      await supabase.from('players').delete().eq('id', characterIdToDelete);
+      await buttonInteraction.update({ content: `Successfully deleted character **${characterToDelete?.character_name}**.`, components: [] });
+    } else if (buttonInteraction.customId === 'cancel_delete') {
+      await buttonInteraction.update({ content: 'Deletion cancelled.', components: [] });
+    }
+  } catch (e) {
+    await interaction.editReply({ content: 'Confirmation not received within 1 minute, cancelling.', components: [] });
+  }
+}
