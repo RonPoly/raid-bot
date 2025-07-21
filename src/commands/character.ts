@@ -43,7 +43,7 @@ async function handleView(interaction: ChatInputCommandInteraction) {
 
   const { data: characters, error } = await supabase
     .from('players')
-    .select('character_name, realm')
+    .select('character_name, realm, gear_score')
     .eq('discord_id', interaction.user.id)
     .eq('guild_id', interaction.guildId ?? '');
 
@@ -54,20 +54,36 @@ async function handleView(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  const results = await Promise.all(
-    characters.map(async (c) => {
-      try {
-        const summary = await fetchCharacterSummary(c.character_name, c.realm);
-        if ((summary as any).error) {
-          return `• **${c.character_name}** (${c.realm}) - **Not Found**`;
+  let results: string[];
+  try {
+    results = await Promise.all(
+      characters.map(async (c) => {
+        try {
+          const summary = await fetchCharacterSummary(c.character_name, c.realm);
+          if ((summary as any).error) {
+            return `• **${c.character_name}** (${c.realm}) - **Not Found**`;
+          }
+          const gs = calculateGearScore(summary.equipment);
+          return `• **${c.character_name}** (${c.realm}) - GS: **${gs}**`;
+        } catch (err: any) {
+          if (err.status === 503) {
+            throw err;
+          }
+          const gs = c.gear_score ? `GS: **${c.gear_score}**` : '**Not Found**';
+          return `• **${c.character_name}** (${c.realm}) - ${gs}`;
         }
-        const gs = calculateGearScore(summary.equipment);
-        return `• **${c.character_name}** (${c.realm}) - GS: **${gs}**`;
-      } catch {
-        return `• **${c.character_name}** (${c.realm}) - **Not Found**`;
-      }
-    })
-  );
+      })
+    );
+  } catch (err: any) {
+    if (err.status === 503) {
+      await interaction.editReply({
+        content:
+          'Warmane API is currently under maintenance. Please try again later.',
+      });
+      return;
+    }
+    throw err;
+  }
 
   await interaction.editReply({ content: results.join('\n') });
 }
