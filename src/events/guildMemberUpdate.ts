@@ -1,4 +1,4 @@
-import { Client, Events, GuildMember } from 'discord.js';
+import { Client, Events } from 'discord.js';
 
 export default function registerGuildMemberUpdate(client: Client) {
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
