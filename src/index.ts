@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
 import cron from 'node-cron';
 import { syncInGameGuilds } from './tasks/guild-sync';
+import { startRaidReminders } from './tasks/raid-reminder';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -51,6 +52,8 @@ client.once('ready', () => {
   cron.schedule('0 */3 * * *', () => {
     syncInGameGuilds(client);
   });
+
+  startRaidReminders(client);
 });
 
 client.login(DISCORD_TOKEN);

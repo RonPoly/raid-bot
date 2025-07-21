@@ -22,7 +22,8 @@ const command: Command = {
     .addSubcommand((sub) =>
       sub
         .setName('delete')
-        .setDescription('Delete one of your registered characters.')),
+        .setDescription('Delete one of your registered characters.')
+    ),
 
   async execute(interaction: ChatInputCommandInteraction) {
     const sub = interaction.options.getSubcommand();
@@ -42,9 +43,9 @@ async function handleView(interaction: ChatInputCommandInteraction) {
 
   const { data: characters, error } = await supabase
     .from('players')
-    .select('id, character_name, realm')
+    .select('character_name, realm')
     .eq('discord_id', interaction.user.id)
-    .eq('guild_id', interaction.guildId!);
+    .eq('guild_id', interaction.guildId ?? '');
 
   if (error || !characters || characters.length === 0) {
     await interaction.editReply({
@@ -78,7 +79,7 @@ async function handleDelete(interaction: ChatInputCommandInteraction) {
     .from('players')
     .select('id, character_name, realm')
     .eq('discord_id', interaction.user.id)
-    .eq('guild_id', interaction.guildId!);
+    .eq('guild_id', interaction.guildId ?? '');
 
   if (error || !characters || characters.length === 0) {
     await interaction.editReply({

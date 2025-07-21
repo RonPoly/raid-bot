@@ -9,6 +9,9 @@ import supabase from '../config/database';
 import { getGuildConfig } from './guild-config';
 import { isUserRegistered } from './database';
 
+// Flag to prevent concurrent syncs
+let isSyncing = false;
+
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 function normalize(name: string): string {
@@ -120,6 +123,8 @@ export async function syncMemberRoles(
       return;
     }
 
+    console.log(`\n[RoleSync] Checking ${member.displayName} (${member.id})`);
+
     const config = await getGuildConfig(member.guild.id);
     if (!config || !config.warmane_guild_name || !config.member_role_id) {
       return;
@@ -130,15 +135,18 @@ export async function syncMemberRoles(
     const memberRoleId = config.member_role_id;
 
     const data = roster ?? (await fetchGuildMembers(guildName, realm));
+    console.log('[RoleSync] Warmane roster response:', JSON.stringify(data));
     const members = data.members ?? data.roster ?? [];
 
-    const { data: player } = await supabase
-      .from('Players')
-      .select('id, main_character')
+    const { data: rows } = await supabase
+      .from('players')
+      .select('character_name')
       .eq('discord_id', member.id)
-      .maybeSingle();
+      .eq('guild_id', member.guild.id);
+    console.log('[RoleSync] Registered rows:', rows);
 
-    if (!player) {
+    if (!rows || rows.length === 0) {
+      console.log('[RoleSync] No registered characters found for user');
       if (member.roles.cache.has(memberRoleId)) {
         console.log(`Removing member role from ${member.displayName}`);
         await removeRoleWithRetry(member, memberRoleId);
@@ -146,27 +154,25 @@ export async function syncMemberRoles(
       return;
     }
 
-    const { data: alts } = await supabase
-      .from('Alts')
-      .select('character_name')
-      .eq('player_id', player.id);
+    const characters = rows.map(r => r.character_name);
+    console.log('[RoleSync] Registered characters:', characters);
+    console.log('[RoleSync] Normalized registered:', characters.map(c => normalize(c)));
 
-    const characters = [
-      player.main_character,
-      ...((alts?.map(a => a.character_name)) ?? [])
-    ];
+    const normalizedRoster = members.map((m: any) => normalize(m.name));
+    console.log('[RoleSync] Normalized roster:', normalizedRoster);
 
     const inGuild = members.some((m: any) =>
       characters.some(c => normalize(m.name) === normalize(c))
     );
+    console.log('[RoleSync] In guild?', inGuild);
 
     if (inGuild) {
       if (!member.roles.cache.has(memberRoleId)) {
-        console.log(`Adding member role to ${member.displayName}`);
+        console.log(`[RoleSync] Adding member role to ${member.displayName}`);
         await addRoleWithRetry(member, memberRoleId);
       }
     } else if (member.roles.cache.has(memberRoleId)) {
-      console.log(`Removing member role from ${member.displayName}`);
+      console.log(`[RoleSync] Removing member role from ${member.displayName}`);
       await removeRoleWithRetry(member, memberRoleId);
     }
   } catch (err: any) {
@@ -185,11 +191,20 @@ export async function syncGuildRoles(
   guildId: string
 ) {
   try {
+    if (isSyncing) {
+      console.log('Sync already in progress, skipping...');
+      return;
+    }
+    isSyncing = true;
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) return;
+    if (!guild) {
+      isSyncing = false;
+      return;
+    }
 
     const config = await getGuildConfig(guild.id);
     if (!config || !config.warmane_guild_name || !config.member_role_id) {
+      isSyncing = false;
       return;
     }
 
@@ -197,6 +212,7 @@ export async function syncGuildRoles(
     const realm = config.warmane_realm;
 
     const roster = await fetchGuildMembers(guildName, realm);
+    console.log('[RoleSync] Full roster fetched:', JSON.stringify(roster));
     for (const [, member] of guild.members.cache) {
       await syncMemberRoles(member, roster);
     }
@@ -217,6 +233,8 @@ export async function syncGuildRoles(
     } else {
       console.error('Guild role sync error:', err);
     }
+  } finally {
+    isSyncing = false;
   }
 }
 

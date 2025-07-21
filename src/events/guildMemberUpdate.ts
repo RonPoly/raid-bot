@@ -1,11 +1,18 @@
-import { Client, Events } from 'discord.js';
-import { syncMemberRoles } from '../utils/role-sync';
-import { getGuildConfig } from '../utils/guild-config';
+import { Client, Events, GuildMember } from 'discord.js';
 
 export default function registerGuildMemberUpdate(client: Client) {
-  client.on(Events.GuildMemberUpdate, async (_, newMember) => {
-    const config = await getGuildConfig(newMember.guild.id);
-    if (!config || !config.warmane_guild_name || !config.member_role_id) return;
-    await syncMemberRoles(newMember);
+  client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+    // CRITICAL: Only sync if roles ACTUALLY changed
+    const oldRoles = oldMember.roles.cache.map(r => r.id).sort();
+    const newRoles = newMember.roles.cache.map(r => r.id).sort();
+
+    // If roles didn't change, DO NOTHING
+    if (JSON.stringify(oldRoles) === JSON.stringify(newRoles)) {
+      return;
+    }
+
+    // DO NOT sync roles here - it causes infinite loops
+    // Role sync should ONLY happen on the scheduled timer
+    console.log(`Roles changed for ${newMember.displayName} - but NOT triggering sync to avoid loops`);
   });
 }

@@ -11,14 +11,120 @@ import {
   ModalSubmitInteraction,
   TextChannel,
   GuildMember,
-  ChannelType
+  ChannelType,
+  StringSelectMenuBuilder,
+  StringSelectMenuInteraction,
 } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command, Raid } from '../types';
 import { buildRaidEmbed } from '../utils/embed-builder';
 import { requireGuildConfig, getGuildConfig } from '../utils/guild-config';
 
+interface RaidOption {
+  label: string;
+  description: string;
+  value: string;
+  tanks: number;
+  healers: number;
+  dps: number;
+  minGs: number;
+}
+
+const RAID_OPTIONS: RaidOption[] = [
+  {
+    label: 'ICC 10',
+    description: '10 players: 2 tanks, 2-3 healers, 5-6 dps',
+    value: 'ICC10',
+    tanks: 2,
+    healers: 3,
+    dps: 5,
+    minGs: 5800,
+  },
+  {
+    label: 'ICC 25',
+    description: '25 players: 2 tanks, 5-6 healers, 17-18 dps',
+    value: 'ICC25',
+    tanks: 2,
+    healers: 6,
+    dps: 17,
+    minGs: 5800,
+  },
+  {
+    label: 'RS 10',
+    description: '10 players: 1 tank, 2-3 healers, 6-7 dps',
+    value: 'RS10',
+    tanks: 1,
+    healers: 3,
+    dps: 6,
+    minGs: 5500,
+  },
+  {
+    label: 'RS 25',
+    description: '25 players: 1 tank, 5-6 healers, 18-19 dps',
+    value: 'RS25',
+    tanks: 1,
+    healers: 6,
+    dps: 18,
+    minGs: 5500,
+  },
+  {
+    label: 'TOC 10',
+    description: '10 players: 2 tanks, 2-3 healers, 5-6 dps',
+    value: 'TOC10',
+    tanks: 2,
+    healers: 3,
+    dps: 5,
+    minGs: 5200,
+  },
+  {
+    label: 'TOC 25',
+    description: '25 players: 2 tanks, 5-6 healers, 17-18 dps',
+    value: 'TOC25',
+    tanks: 2,
+    healers: 6,
+    dps: 17,
+    minGs: 5200,
+  },
+  {
+    label: 'Ulduar 10',
+    description: '10 players: 2 tanks, 2-3 healers, 5-6 dps',
+    value: 'Ulduar10',
+    tanks: 2,
+    healers: 3,
+    dps: 5,
+    minGs: 4800,
+  },
+  {
+    label: 'Ulduar 25',
+    description: '25 players: 2 tanks, 5-6 healers, 17-18 dps',
+    value: 'Ulduar25',
+    tanks: 2,
+    healers: 6,
+    dps: 17,
+    minGs: 4800,
+  },
+  {
+    label: 'VoA 10',
+    description: '10 players: 1 tank, 2 healers, 7 dps',
+    value: 'VoA10',
+    tanks: 1,
+    healers: 2,
+    dps: 7,
+    minGs: 4500,
+  },
+  {
+    label: 'VoA 25',
+    description: '25 players: 1 tank, 5 healers, 19 dps',
+    value: 'VoA25',
+    tanks: 1,
+    healers: 5,
+    dps: 19,
+    minGs: 4500,
+  },
+];
+
 const CREATE_MODAL_ID = 'raid-create-modal';
+const INSTANCE_SELECT_ID = 'raid-instance-select';
 const SIGNUP_ID = (raidId: string) => `raid-signup:${raidId}`;
 const LEAVE_ID = (raidId: string) => `raid-leave:${raidId}`;
 
@@ -53,62 +159,33 @@ const command: Command = {
         return;
       }
 
-      const modal = new ModalBuilder()
-        .setCustomId(CREATE_MODAL_ID)
-        .setTitle('Create Raid')
-        .addComponents(
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('title')
-              .setLabel('Raid Title')
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true)
-          ),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('instance')
-              .setLabel('Instance')
-              .setPlaceholder('ICC25, RS10, etc')
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true)
-          ),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('datetime')
-              .setLabel('Date/Time')
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true)
-          ),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('tank_slots')
-              .setLabel('Tank slots needed')
-              .setStyle(TextInputStyle.Short)
-              .setValue('2')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('healer_slots')
-              .setLabel('Healer slots needed')
-              .setStyle(TextInputStyle.Short)
-              .setValue('6')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId('dps_slots')
-              .setLabel('DPS slots needed')
-              .setStyle(TextInputStyle.Short)
-              .setValue('17')
-              .setRequired(true)
-          )
+      const { data: templates } = await supabase
+        .from('raid_templates')
+        .select('*')
+        .eq('guild_id', interaction.guildId || '');
+
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId(INSTANCE_SELECT_ID)
+        .setPlaceholder('Select raid instance')
+        .addOptions(
+          RAID_OPTIONS.map((o) => ({
+            label: o.label,
+            value: o.value,
+            description: o.description,
+          }))
         );
-      await interaction.showModal(modal);
+
+      if (templates && templates.length > 0) {
+        for (const t of templates) {
+          menu.addOptions({ label: t.name, value: `template:${t.id}`, description: t.instance });
+        }
+      }
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+      await interaction.reply({ content: 'Choose raid instance:', components: [row], ephemeral: true });
     } else if (sub === 'list') {
       const now = new Date().toISOString();
       const { data: raids } = await supabase
-        .from('Raids')
+        .from('raids')
         .select('*')
         .gt('scheduled_date', now)
         .order('scheduled_date', { ascending: true });
@@ -121,7 +198,7 @@ const command: Command = {
       const embed = new EmbedBuilder().setTitle('Upcoming Raids');
       for (const raid of raids as Raid[]) {
         const { data: signups } = await supabase
-          .from('RaidSignups')
+          .from('raid_signups')
           .select('id')
           .eq('raid_id', raid.id);
         const count = signups?.length ?? 0;
@@ -142,7 +219,7 @@ const command: Command = {
 
       const id = interaction.options.getString('id', true);
       const { data: raid } = await supabase
-        .from('Raids')
+        .from('raids')
         .delete()
         .eq('id', id)
         .select('signup_message_id')
@@ -168,6 +245,64 @@ const command: Command = {
   }
 };
 
+export async function handleRaidInstanceSelect(
+  interaction: StringSelectMenuInteraction,
+  supabase: SupabaseClient
+) {
+  let option = RAID_OPTIONS.find((o) => o.value === interaction.values[0]);
+
+  if (!option && interaction.values[0].startsWith('template:')) {
+    const id = interaction.values[0].split(':')[1];
+    const { data } = await supabase.from('raid_templates').select('*').eq('id', id).maybeSingle();
+    if (data) {
+      option = {
+        label: data.instance,
+        description: data.name,
+        value: `template:${id}`,
+        tanks: data.tank_slots,
+        healers: data.healer_slots,
+        dps: data.dps_slots,
+        minGs: data.min_gearscore
+      };
+    }
+  }
+
+  if (!option) {
+    await interaction.reply({ content: 'Invalid raid selection.', ephemeral: true });
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`${CREATE_MODAL_ID}:${option.value}`)
+    .setTitle('Create Raid')
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('title')
+          .setLabel('Raid Title')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true),
+      ),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('datetime')
+          .setLabel('Enter date and time (e.g., Saturday 8pm ST or 2024-01-20 20:00)')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true),
+      ),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('min_gs')
+          .setLabel('Minimum GearScore')
+          .setStyle(TextInputStyle.Short)
+          .setValue(String(option.minGs))
+          .setRequired(true),
+      ),
+    );
+
+  await interaction.showModal(modal);
+}
+
 export async function handleRaidCreateModal(
   interaction: ModalSubmitInteraction,
   supabase: SupabaseClient
@@ -178,30 +313,39 @@ export async function handleRaidCreateModal(
     return;
   }
 
+  const [, raidValue] = interaction.customId.split(':');
+  const option = RAID_OPTIONS.find((o) => o.value === raidValue);
+  if (!option) {
+    await interaction.reply({ content: 'Invalid raid type.', ephemeral: true });
+    return;
+  }
+
   const title = interaction.fields.getTextInputValue('title');
-  const instance = interaction.fields.getTextInputValue('instance');
   const date = interaction.fields.getTextInputValue('datetime');
-  const tankSlots = parseInt(interaction.fields.getTextInputValue('tank_slots'), 10) || 2;
-  const healerSlots = parseInt(interaction.fields.getTextInputValue('healer_slots'), 10) || 6;
-  const dpsSlots = parseInt(interaction.fields.getTextInputValue('dps_slots'), 10) || 17;
+  const minGsInput = parseInt(interaction.fields.getTextInputValue('min_gs'), 10);
+  const minGs = isNaN(minGsInput) ? option.minGs : minGsInput;
+  const tankSlots = option.tanks;
+  const healerSlots = option.healers;
+  const dpsSlots = option.dps;
 
   let raidLeaderId: string | null = null;
   const { data: player } = await supabase
-    .from('Players')
+    .from('players')
     .select('id')
     .eq('discord_id', interaction.user.id)
     .maybeSingle();
   if (player) raidLeaderId = player.id;
 
   const { data: raid } = await supabase
-    .from('Raids')
+    .from('raids')
     .insert({
       title,
-      instance,
+      instance: option.label,
       scheduled_date: date,
       tank_slots: tankSlots,
       healer_slots: healerSlots,
       dps_slots: dpsSlots,
+      min_gearscore: minGs,
       raid_leader_id: raidLeaderId
     })
     .select('*')
@@ -218,7 +362,7 @@ export async function handleRaidCreateModal(
       .setStyle(ButtonStyle.Secondary)
   );
 
-  const embed = buildRaidEmbed(raid as Raid, [], config.warmane_realm);
+  const embed = buildRaidEmbed(raid as Raid, [], config.warmane_realm, []);
   const channel = interaction.guild?.channels.cache.get(config.raid_channel_id) as TextChannel | undefined;
   if (!channel || channel.type !== ChannelType.GuildText) {
     await interaction.reply({ content: 'Raid channel not found.', ephemeral: true });
@@ -226,7 +370,7 @@ export async function handleRaidCreateModal(
   }
   const msg = await channel.send({ embeds: [embed], components: [buttons] });
 
-  await supabase.from('Raids').update({ signup_message_id: msg.id }).eq('id', raid.id);
+  await supabase.from('raids').update({ signup_message_id: msg.id }).eq('id', raid.id);
 
   await interaction.reply({ content: 'Raid created.', ephemeral: true });
 }

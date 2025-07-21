@@ -10,19 +10,25 @@ export interface Command {
 
 export interface Player {
   id: string;
+  guild_id: string;
   discord_id: string;
-  main_character: string;
+  character_name: string;
   realm: string;
+  class?: string | null;
+  gear_score?: number | null;
+  last_updated?: string | null;
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface Character {
+  id: string;
+  guild_id: string;
+  discord_id: string;
   character_name: string;
-  player_id?: string;
-  gear_score?: number;
-  item_level?: number;
-  last_updated?: string;
+  realm: string;
+  gear_score?: number | null;
+  last_updated?: string | null;
+  created_at?: string;
 }
 
 export interface Raid {
@@ -45,9 +51,38 @@ export interface RaidSignup {
   raid_id: string;
   character_name: string;
   role: 'tank' | 'healer' | 'dps';
+  class?: string | null;
   gear_score: number;
   signed_up_at: string;
   comment?: string | null;
+}
+
+export interface RaidBench {
+  id: string;
+  raid_id: string;
+  character_name: string;
+  gear_score?: number | null;
+  added_at: string;
+}
+
+export interface RaidTemplate {
+  id: string;
+  guild_id: string;
+  name: string;
+  instance: string;
+  tank_slots: number;
+  healer_slots: number;
+  dps_slots: number;
+  min_gearscore: number;
+  created_at?: string;
+}
+
+export interface RaidLog {
+  id: string;
+  raid_id: string;
+  character_name: string;
+  role: string;
+  logged_at: string;
 }
 
 export interface GuildConfig {

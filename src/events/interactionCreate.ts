@@ -1,14 +1,15 @@
 import { Client, Events } from 'discord.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Command } from '../types';
-import { handleRaidCreateModal } from '../commands/raid';
+import { handleRaidCreateModal, handleRaidInstanceSelect } from '../commands/raid';
 import {
   handleRaidSignupButton,
   handleRaidLeaveButton,
   handleRaidRoleSelect,
   handleRaidCharacterSelect,
 } from '../utils/button-handlers';
-import { handleGsSetSelectMenu } from '../commands/gs';
+import { handleGsSelectMenu } from '../commands/gearscore';
+import { logError } from '../utils/logger';
 
 export default function registerInteractionCreate(client: Client, commands: Map<string, Command>, supabase: SupabaseClient) {
   client.on(Events.InteractionCreate, async (interaction) => {
@@ -18,13 +19,13 @@ export default function registerInteractionCreate(client: Client, commands: Map<
       try {
         await command.execute(interaction, supabase);
       } catch (err) {
-        console.error('Command error:', err);
+        logError(err);
         if (!interaction.replied) {
           await interaction.reply({ content: 'An error occurred.', ephemeral: true });
         }
       }
     } else if (interaction.isModalSubmit()) {
-      if (interaction.customId === 'raid-create-modal') {
+      if (interaction.customId.startsWith('raid-create-modal')) {
         await handleRaidCreateModal(interaction, supabase);
       }
     } else if (interaction.isButton()) {
@@ -38,8 +39,10 @@ export default function registerInteractionCreate(client: Client, commands: Map<
         await handleRaidRoleSelect(interaction, supabase);
       } else if (interaction.customId.startsWith('raid-char-select:')) {
         await handleRaidCharacterSelect(interaction, supabase);
-      } else if (interaction.customId.startsWith('gs-set-select:')) {
-        await handleGsSetSelectMenu(interaction, supabase);
+      } else if (interaction.customId === 'raid-instance-select') {
+        await handleRaidInstanceSelect(interaction, supabase);
+      } else if (interaction.customId === 'gs-select') {
+        await handleGsSelectMenu(interaction, supabase);
       }
     }
   });

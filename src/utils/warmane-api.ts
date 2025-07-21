@@ -5,9 +5,9 @@ function encodeGuildName(name: string): string {
 }
 
 export async function fetchGuildMembers(name: string, realm: string) {
-  const res = await fetch(
-    `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/members`
-  );
+  const url = `${BASE_URL}/guild/${encodeGuildName(name)}/${encodeURIComponent(realm)}/members`;
+  console.log('[WarmaneAPI] Fetching guild members from', url);
+  const res = await fetch(url);
   if (res.status === 503) {
     const err: any = new Error('Warmane API maintenance');
     err.status = 503;
@@ -16,7 +16,9 @@ export async function fetchGuildMembers(name: string, realm: string) {
   if (!res.ok) {
     throw new Error(`Warmane API error: ${res.status}`);
   }
-  return res.json();
+  const json = await res.json();
+  console.log('[WarmaneAPI] Guild members response:', JSON.stringify(json));
+  return json;
 }
 
 export async function fetchCharacterSummary(name: string, realm: string) {
