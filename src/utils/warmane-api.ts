@@ -53,13 +53,14 @@ export async function fetchGuildMembers(name: string, realm: string) {
   }
   const json = await res.json();
   console.log('[WarmaneAPI] Guild members response:', JSON.stringify(json));
-  await writeCache(ROSTER_CACHE, json);
+  const toCache = { ...json, name, realm };
+  await writeCache(ROSTER_CACHE, toCache);
   const members = json.members ?? json.roster ?? [];
   const byName: Record<string, any> = {};
   for (const m of members) {
     byName[m.name] = m;
   }
-  return { ...json, byName };
+  return { ...json, name, realm, byName };
 }
 
 export async function fetchCharacterSummary(name: string, realm: string) {
@@ -85,8 +86,9 @@ export async function fetchGuildSummary(name: string, realm: string) {
     throw err;
   }
   const json = await res.json();
-  await writeCache(SUMMARY_CACHE, json);
-  return json;
+  const toCache = { ...json, name, realm };
+  await writeCache(SUMMARY_CACHE, toCache);
+  return toCache;
 }
 
 export const CLASS_COLORS: Record<string, number> = {
