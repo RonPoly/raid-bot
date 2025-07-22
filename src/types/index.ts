@@ -16,6 +16,7 @@ export interface Player {
   realm: string;
   class?: string | null;
   gear_score?: number | null;
+  is_main?: boolean;
   last_updated?: string | null;
   created_at?: string;
 }
@@ -26,13 +27,16 @@ export interface Character {
   discord_id: string;
   character_name: string;
   realm: string;
+  class?: string | null;
   gear_score?: number | null;
+  is_main?: boolean;
   last_updated?: string | null;
   created_at?: string;
 }
 
 export interface Raid {
   id: string;
+  guild_id: string;
   title: string;
   instance: string;
   scheduled_date: string;
@@ -42,19 +46,23 @@ export interface Raid {
   min_gearscore: number;
   raid_leader_id: string | null;
   signup_message_id?: string | null;
+  reminder_sent?: boolean;
   status: string;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface RaidSignup {
   id: string;
   raid_id: string;
+  player_id: string;
   character_name: string;
   role: 'tank' | 'healer' | 'dps';
   class?: string | null;
-  gear_score: number;
-  signed_up_at: string;
+  gear_score?: number | null;
   comment?: string | null;
+  benched?: boolean;
+  signed_up_at: string;
 }
 
 export interface RaidBench {
