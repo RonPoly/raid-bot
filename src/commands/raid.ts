@@ -178,14 +178,18 @@ const command: Command = {
                       if (action === 'title') raidState.title = submitted.fields.getTextInputValue('title');
                       if (action === 'leader') {
                           const query = submitted.fields.getTextInputValue('leader_query');
-                          const { data: leader } = await supabase
-                              .rpc('get_player_by_name_or_discord_id', { p_guild_id: interaction.guildId!, p_query: query })
-                              .single<{ player_id: string; found_name: string }>()
-                              .catch(() => ({ data: null }));
-                          if (leader) {
-                              raidState.raid_leader_id = leader.player_id;
-                              raidState.raid_leader_name = leader.found_name;
-                          } else {
+                          try {
+                              const { data: leader } = await supabase
+                                  .rpc('get_player_by_name_or_discord_id', { p_guild_id: interaction.guildId!, p_query: query })
+                                  .maybeSingle<{ player_id: string; found_name: string }>();
+                              if (leader) {
+                                  raidState.raid_leader_id = leader.player_id;
+                                  raidState.raid_leader_name = leader.found_name;
+                              } else {
+                                  raidState.raid_leader_id = null;
+                                  raidState.raid_leader_name = 'Not Found';
+                              }
+                          } catch (error) {
                               raidState.raid_leader_id = null;
                               raidState.raid_leader_name = 'Not Found';
                           }
@@ -200,8 +204,8 @@ const command: Command = {
                       new ButtonBuilder().setCustomId(`raid-signup:${raid.id}`).setLabel('Sign Up').setStyle(ButtonStyle.Success),
                       new ButtonBuilder().setCustomId(`raid-leave:${raid.id}`).setLabel('Leave').setStyle(ButtonStyle.Secondary)
                   );
-                  const finalEmbed = buildRaidEmbed(raid, [], config.realm!, []);
-                  const channel = interaction.guild?.channels.cache.get(config.log_channel_id!) as TextChannel | undefined;
+                    const finalEmbed = buildRaidEmbed(raid, [], config.warmane_realm!, []);
+                    const channel = interaction.guild?.channels.cache.get(config.raid_channel_id!) as TextChannel | undefined;
                   if (channel) {
                       await channel.send({ content: `A new raid has been scheduled by ${interaction.user.toString()}!`, embeds: [finalEmbed], components: [signupButtons] }).then(msg =>
                           supabase.from('raids').update({ signup_message_id: msg.id }).eq('id', raid.id)
