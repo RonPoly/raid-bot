@@ -38,7 +38,7 @@ export async function requireGuildConfig(
   const config = await getGuildConfig(guildId);
   if (!config) {
     await interaction.reply({
-      content: 'This server needs to be configured. An admin should run /setup',
+      content: 'This server needs to be configured. An admin should run `/setup`',
       flags: MessageFlags.Ephemeral
     });
     return null;
