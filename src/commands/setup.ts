@@ -82,7 +82,7 @@ const command: Command = {
 
       if (!config || !config.setup_complete) {
         await interaction.editReply({
-          content: 'Not configured. Run /setup to configure.'
+          content: 'Not configured. Run `/setup run` to configure.'
         });
         return;
       }
@@ -90,8 +90,8 @@ const command: Command = {
       const embed = new EmbedBuilder()
         .setTitle('Guild Configuration')
         .addFields(
-          { name: 'Guild', value: config.warmane_guild_name, inline: true },
-          { name: 'Realm', value: config.warmane_realm, inline: true },
+          { name: 'Guild', value: config.warmane_guild_name || 'Not Set', inline: true },
+          { name: 'Realm', value: config.warmane_realm || 'Not Set', inline: true },
           { name: 'Member Role ID', value: config.member_role_id ?? 'None', inline: true },
           { name: 'Officer Role ID', value: config.officer_role_id ?? 'None', inline: true },
           { name: 'Raid Channel ID', value: config.raid_channel_id ?? 'None', inline: true }
