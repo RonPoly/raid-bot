@@ -76,18 +76,18 @@ const command: Command = {
       };
 
       const generateBuilderEmbed = () => new EmbedBuilder()
-        .setTitle('\ud83d\udccd Interactive Raid Builder')
+        .setTitle('📋 Interactive Raid Builder')
         .setColor('#5865F2')
         .setDescription('Use the components below to configure the raid. This embed will update with your selections.')
         .addFields(
-            { name: '\ud83d\udcdd Title', value: raidState.title || 'Not Set', inline: true },
-            { name: '\ud83d\udc51 Raid Leader', value: raidState.raid_leader_name || 'Not Assigned', inline: true },
-            { name: '\ud83d\udcc5 Date', value: (raidState.day && raidState.time) ? `${raidState.day} at ${raidState.time}` : 'Not Set', inline: true },
-            { name: '\ud83c\udff0 Instance', value: raidState.instance || 'Not Set', inline: true },
-            { name: '\ud83d\udee1\ufe0f Tanks', value: String(raidState.tank_slots || '...'), inline: true },
-            { name: '\ud83c\udf49 Healers', value: String(raidState.healer_slots || '...'), inline: true },
-            { name: '\u2694\ufe0f DPS', value: String(raidState.dps_slots || '...'), inline: true },
-            { name: '\u2699\ufe0f Min. GS', value: String(raidState.min_gearscore || '...'), inline: true },
+            { name: '📝 Title', value: raidState.title || 'Not Set', inline: true },
+            { name: '👑 Raid Leader', value: raidState.raid_leader_name || 'Not Assigned', inline: true },
+            { name: '📅 Date', value: (raidState.day && raidState.time) ? `${raidState.day} at ${raidState.time}` : 'Not Set', inline: true },
+            { name: '🏰 Instance', value: raidState.instance || 'Not Set', inline: true },
+            { name: '🛡️ Tanks', value: String(raidState.tank_slots || '...'), inline: true },
+            { name: '🌿 Healers', value: String(raidState.healer_slots || '...'), inline: true },
+            { name: '⚔️ DPS', value: String(raidState.dps_slots || '...'), inline: true },
+            { name: '⚙️ Min. GS', value: String(raidState.min_gearscore || '...'), inline: true },
         )
         .setFooter({ text: 'All fields must be set before you can create the raid.' });
 
@@ -126,10 +126,10 @@ const command: Command = {
         new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(new StringSelectMenuBuilder().setCustomId(`${builderId}_day`).setPlaceholder('2. Select Day').setOptions(getDayOptions())),
         new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(new StringSelectMenuBuilder().setCustomId(`${builderId}_time`).setPlaceholder('3. Select Time (Server Time)').setOptions(getTimeOptions())),
         new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId(`${builderId}_edit_title`).setLabel('Set Title').setStyle(ButtonStyle.Secondary).setEmoji('\ud83d\udcdd'),
-          new ButtonBuilder().setCustomId(`${builderId}_assign_leader`).setLabel('Assign Leader').setStyle(ButtonStyle.Secondary).setEmoji('\ud83d\udc51'),
-          new ButtonBuilder().setCustomId(`${builderId}_create`).setLabel('Create').setStyle(ButtonStyle.Success).setDisabled(!checkCanCreate()).setEmoji('\u2705'),
-          new ButtonBuilder().setCustomId(`${builderId}_cancel`).setLabel('Cancel').setStyle(ButtonStyle.Danger).setEmoji('\u2716\ufe0f')
+          new ButtonBuilder().setCustomId(`${builderId}_edit_title`).setLabel('Set Title').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
+          new ButtonBuilder().setCustomId(`${builderId}_assign_leader`).setLabel('Assign Leader').setStyle(ButtonStyle.Secondary).setEmoji('👑'),
+          new ButtonBuilder().setCustomId(`${builderId}_create`).setLabel('Create').setStyle(ButtonStyle.Success).setDisabled(!checkCanCreate()).setEmoji('✅'),
+          new ButtonBuilder().setCustomId(`${builderId}_cancel`).setLabel('Cancel').setStyle(ButtonStyle.Danger).setEmoji('❌')
         )
       ];
 
@@ -137,73 +137,83 @@ const command: Command = {
       const collector = message.createMessageComponentCollector({ filter: (i) => i.user.id === interaction.user.id, time: 300_000 });
 
       collector.on('collect', async i => {
-        await i.deferUpdate();
-        const [,,, action] = i.customId.split('_');
-        
-        if (i.isStringSelectMenu()) {
-          const value = i.values[0];
-          if (action === 'instance') {
-            let option = RAID_OPTIONS.find(o => o.value === value);
-            if (!option && value.startsWith('template:')) {
-              const t = templates?.find(t => `template:${t.id}` === value);
-              if (t) Object.assign(raidState, { instance: t.instance, tank_slots: t.tank_slots, healer_slots: t.healer_slots, dps_slots: t.dps_slots, min_gearscore: t.min_gearscore });
-            } else if (option) Object.assign(raidState, { instance: option.label, tank_slots: option.tanks, healer_slots: option.healers, dps_slots: option.dps, min_gearscore: option.minGs });
+        try {
+          await i.deferUpdate();
+          
+          // Fix: Properly parse the custom ID
+          const customIdParts = i.customId.split('_');
+          const action = customIdParts[customIdParts.length - 1]; // Get the last part as action
+          
+          console.log('Custom ID:', i.customId, 'Action:', action); // Debug logging
+          
+          if (i.isStringSelectMenu()) {
+            const value = i.values[0];
+            if (action === 'instance') {
+              let option = RAID_OPTIONS.find(o => o.value === value);
+              if (!option && value.startsWith('template:')) {
+                const t = templates?.find(t => `template:${t.id}` === value);
+                if (t) Object.assign(raidState, { instance: t.instance, tank_slots: t.tank_slots, healer_slots: t.healer_slots, dps_slots: t.dps_slots, min_gearscore: t.min_gearscore });
+              } else if (option) Object.assign(raidState, { instance: option.label, tank_slots: option.tanks, healer_slots: option.healers, dps_slots: option.dps, min_gearscore: option.minGs });
+            }
+            if (action === 'day') raidState.day = value;
+            if (action === 'time') raidState.time = value;
           }
-          if (action === 'day') raidState.day = value;
-          if (action === 'time') raidState.time = value;
+
+          if (i.isButton()) {
+              if (action === 'cancel') return collector.stop('cancelled');
+
+              if (action === 'title' || action === 'leader') { // Handle edit_title and assign_leader
+                  const modalId = `${builderId}_modal_${action}`;
+                  const modal = new ModalBuilder().setCustomId(modalId).setTitle(action === 'title' ? 'Set Raid Title' : 'Assign Raid Leader');
+                  const input = new TextInputBuilder().setRequired(true);
+                  if (action === 'title') input.setCustomId('title').setLabel('Raid Title').setStyle(TextInputStyle.Short).setValue(raidState.title || '');
+                  if (action === 'leader') input.setCustomId('leader_query').setLabel('Discord User Name or Character Name').setStyle(TextInputStyle.Short).setPlaceholder('e.g., Raidleadah or Arthas');
+                  
+                  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+                  await i.showModal(modal);
+                  const submitted = await i.awaitModalSubmit({ time: 60000 }).catch(() => null);
+
+                  if (submitted) {
+                      await submitted.deferUpdate();
+                      if (action === 'title') raidState.title = submitted.fields.getTextInputValue('title');
+                      if (action === 'leader') {
+                          const query = submitted.fields.getTextInputValue('leader_query');
+                          const { data: leader } = await supabase
+                              .rpc('get_player_by_name_or_discord_id', { p_guild_id: interaction.guildId!, p_query: query })
+                              .single<{ player_id: string; found_name: string }>()
+                              .catch(() => ({ data: null }));
+                          if (leader) {
+                              raidState.raid_leader_id = leader.player_id;
+                              raidState.raid_leader_name = leader.found_name;
+                          } else {
+                              raidState.raid_leader_id = null;
+                              raidState.raid_leader_name = 'Not Found';
+                          }
+                      }
+                  }
+              }
+              
+              if (action === 'create') {
+                  raidState.scheduled_date = `${raidState.day} at ${raidState.time}`;
+                  const { data: raid } = await supabase.from('raids').insert(raidState).select().single();
+                  const signupButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                      new ButtonBuilder().setCustomId(`raid-signup:${raid.id}`).setLabel('Sign Up').setStyle(ButtonStyle.Success),
+                      new ButtonBuilder().setCustomId(`raid-leave:${raid.id}`).setLabel('Leave').setStyle(ButtonStyle.Secondary)
+                  );
+                  const finalEmbed = buildRaidEmbed(raid, [], config.realm!, []);
+                  const channel = interaction.guild?.channels.cache.get(config.log_channel_id!) as TextChannel | undefined;
+                  if (channel) {
+                      await channel.send({ content: `A new raid has been scheduled by ${interaction.user.toString()}!`, embeds: [finalEmbed], components: [signupButtons] }).then(msg =>
+                          supabase.from('raids').update({ signup_message_id: msg.id }).eq('id', raid.id)
+                      );
+                  }
+                  return collector.stop('created');
+              }
+          }
+          await interaction.editReply({ embeds: [generateBuilderEmbed()], components: components() });
+        } catch (error) {
+          console.error('Error in raid builder collector:', error);
         }
-
-        if (i.isButton()) {
-            if (action === 'cancel') return collector.stop('cancelled');
-
-            if (action === 'edit' || action === 'assign') { // Combined for title and leader modals
-                const modalId = `${builderId}_modal_${action}`;
-                const modal = new ModalBuilder().setCustomId(modalId).setTitle(action === 'edit' ? 'Set Raid Title' : 'Assign Raid Leader');
-                const input = new TextInputBuilder().setRequired(true);
-                if (action === 'edit') input.setCustomId('title').setLabel('Raid Title').setStyle(TextInputStyle.Short).setValue(raidState.title || '');
-                if (action === 'assign') input.setCustomId('leader_query').setLabel('Discord User Name or Character Name').setStyle(TextInputStyle.Short).setPlaceholder('e.g., Raidleadah or Arthas');
-                
-                modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
-                await i.showModal(modal);
-                const submitted = await i.awaitModalSubmit({ time: 60000 }).catch(() => null);
-
-                if (submitted) {
-                    await submitted.deferUpdate();
-                    if (action === 'edit') raidState.title = submitted.fields.getTextInputValue('title');
-                    if (action === 'assign') {
-                        const query = submitted.fields.getTextInputValue('leader_query');
-                        const { data: leader } = await supabase
-                            .rpc('get_player_by_name_or_discord_id', { p_guild_id: interaction.guildId!, p_query: query })
-                            .single<{ player_id: string; found_name: string }>();
-                        if (leader) {
-                            raidState.raid_leader_id = leader.player_id;
-                            raidState.raid_leader_name = leader.found_name;
-                        } else {
-                            raidState.raid_leader_id = null;
-                            raidState.raid_leader_name = 'Not Found';
-                        }
-                    }
-                }
-            }
-            
-            if (action === 'create') {
-                raidState.scheduled_date = `${raidState.day} at ${raidState.time}`;
-                const { data: raid } = await supabase.from('raids').insert(raidState).select().single();
-                const signupButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                    new ButtonBuilder().setCustomId(`raid-signup:${raid.id}`).setLabel('Sign Up').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`raid-leave:${raid.id}`).setLabel('Leave').setStyle(ButtonStyle.Secondary)
-                );
-                const finalEmbed = buildRaidEmbed(raid, [], config.warmane_realm!, []);
-                const channel = interaction.guild?.channels.cache.get(config.raid_channel_id!) as TextChannel | undefined;
-                if (channel) {
-                    await channel.send({ content: `A new raid has been scheduled by ${interaction.user.toString()}!`, embeds: [finalEmbed], components: [signupButtons] }).then(msg =>
-                        supabase.from('raids').update({ signup_message_id: msg.id }).eq('id', raid.id)
-                    );
-                }
-                return collector.stop('created');
-            }
-        }
-        await interaction.editReply({ embeds: [generateBuilderEmbed()], components: components() });
       });
 
       collector.on('end', async (_, reason) => {
@@ -215,7 +225,7 @@ const command: Command = {
 
     // --- Other Subcommands ---
     if (sub === 'list' || sub === 'cancel') {
-        // This logic remains the same as your previous version.
+        await interaction.editReply({ content: 'This subcommand is not yet implemented.' });
     }
   }
 };
