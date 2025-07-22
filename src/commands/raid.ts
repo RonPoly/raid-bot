@@ -137,10 +137,10 @@ const command: Command = {
       const collector = message.createMessageComponentCollector({ filter: (i) => i.user.id === interaction.user.id, time: 300_000 });
 
       collector.on('collect', async i => {
-        await i.deferUpdate();
-        const [,,, action] = i.customId.split('_');
+        const action = i.customId.slice(builderId.length + 1); // extract action from end
         
         if (i.isStringSelectMenu()) {
+          await i.deferUpdate();
           const value = i.values[0];
           if (action === 'instance') {
             let option = RAID_OPTIONS.find(o => o.value === value);
@@ -154,14 +154,17 @@ const command: Command = {
         }
 
         if (i.isButton()) {
-            if (action === 'cancel') return collector.stop('cancelled');
+            if (action === 'cancel') {
+                await i.deferUpdate();
+                return collector.stop('cancelled');
+            }
 
-            if (action === 'edit' || action === 'assign') { // Combined for title and leader modals
+            if (action === 'edit_title' || action === 'assign_leader') {
                 const modalId = `${builderId}_modal_${action}`;
-                const modal = new ModalBuilder().setCustomId(modalId).setTitle(action === 'edit' ? 'Set Raid Title' : 'Assign Raid Leader');
+                const modal = new ModalBuilder().setCustomId(modalId).setTitle(action === 'edit_title' ? 'Set Raid Title' : 'Assign Raid Leader');
                 const input = new TextInputBuilder().setRequired(true);
-                if (action === 'edit') input.setCustomId('title').setLabel('Raid Title').setStyle(TextInputStyle.Short).setValue(raidState.title || '');
-                if (action === 'assign') input.setCustomId('leader_query').setLabel('Discord User Name or Character Name').setStyle(TextInputStyle.Short).setPlaceholder('e.g., Raidleadah or Arthas');
+                if (action === 'edit_title') input.setCustomId('title').setLabel('Raid Title').setStyle(TextInputStyle.Short).setValue(raidState.title || '');
+                if (action === 'assign_leader') input.setCustomId('leader_query').setLabel('Discord User Name or Character Name').setStyle(TextInputStyle.Short).setPlaceholder('e.g., Raidleadah or Arthas');
                 
                 modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
                 await i.showModal(modal);
@@ -169,8 +172,8 @@ const command: Command = {
 
                 if (submitted) {
                     await submitted.deferUpdate();
-                    if (action === 'edit') raidState.title = submitted.fields.getTextInputValue('title');
-                    if (action === 'assign') {
+                    if (action === 'edit_title') raidState.title = submitted.fields.getTextInputValue('title');
+                    if (action === 'assign_leader') {
                         const query = submitted.fields.getTextInputValue('leader_query');
                         const { data: leader } = await supabase
                             .rpc('get_player_by_name_or_discord_id', { p_guild_id: interaction.guildId!, p_query: query })
@@ -187,6 +190,7 @@ const command: Command = {
             }
             
             if (action === 'create') {
+                await i.deferUpdate();
                 raidState.scheduled_date = `${raidState.day} at ${raidState.time}`;
                 const { data: raid } = await supabase.from('raids').insert(raidState).select().single();
                 const signupButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
